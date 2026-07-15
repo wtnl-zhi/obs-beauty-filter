@@ -62,6 +62,7 @@ cmake --install build/windows-x64 --config RelWithDebInfo --prefix dist
 完整范围、架构、性能分级与待确认需求见 [开发说明](docs/OBS_BEAUTY_PLUGIN_DEV_SPEC.md)。
 阶段目标、当前进度与验收门槛见 [开发计划](docs/DEVELOPMENT_PLAN.md)。
 人工 OBS 场景验收步骤见 [场景验收清单](docs/OBS_SCENE_VALIDATION.md)。
+安装、卸载、故障排查与性能建议见 [用户指南](docs/USER_GUIDE.md)。
 
 ## 许可证
 
