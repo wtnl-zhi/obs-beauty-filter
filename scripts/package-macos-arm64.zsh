@@ -13,6 +13,14 @@ identity="${OBS_BEAUTY_CODESIGN_IDENTITY:-}"
 [[ "$(uname -m)" == "arm64" ]] || { print -u2 "仅能在 Apple Silicon 上打包"; exit 1; }
 [[ -n "$version" ]] || { print -u2 "无法确定版本号"; exit 1; }
 [[ -n "$identity" ]] || { print -u2 "设置 OBS_BEAUTY_CODESIGN_IDENTITY 为 Developer ID Application 证书名"; exit 1; }
+[[ "$identity" == Developer\ ID\ Application:* ]] || {
+  print -u2 "必须使用 Developer ID Application 证书，不能使用 Apple Development 或 ad-hoc 签名"
+  exit 1
+}
+security find-identity -v -p codesigning | grep -Fq "\"$identity\"" || {
+  print -u2 "钥匙串中未找到指定的 Developer ID Application 证书：$identity"
+  exit 1
+}
 
 stage="$(mktemp -d "${TMPDIR:-/tmp}/obs-beauty-release.XXXXXX")"
 payload="$stage/obs-beauty-filter-${version}-macos-arm64"

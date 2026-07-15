@@ -6,6 +6,8 @@ macOS Apple Silicon：解压发布包，将 `obs-beauty-filter.plugin` 复制到
 
 Windows x64：解压发布包到 OBS 安装目录或用户插件目录，保持 `obs-beauty-filter/bin/64bit` 与 `obs-beauty-filter/data` 的目录结构不变，重启 OBS。
 
+macOS 发布包必须由 `Developer ID Application` 证书签名并完成 Apple notarization；`Apple Development` 或 ad-hoc 签名仅可用于开发测试，不能作为面向用户的发布包。
+
 ## 卸载
 
 先关闭 OBS，再删除对应的 `obs-beauty-filter.plugin`（macOS）或 `obs-beauty-filter` 插件目录（Windows）。删除滤镜不会修改摄像头原始画面；如需清除保存的滤镜设置，可在 OBS 中先移除该滤镜。
