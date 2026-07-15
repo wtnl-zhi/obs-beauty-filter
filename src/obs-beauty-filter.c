@@ -166,6 +166,8 @@ static void beauty_filter_destroy(void *data)
 {
 	struct beauty_filter *filter = data;
 
+	blog(LOG_INFO, "[obs-beauty-filter] filter instance destroyed");
+
 	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 	beauty_face_inference_worker_destroy(filter->inference_worker);
 	filter->inference_worker = NULL;
@@ -257,6 +259,14 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 #endif
 
 	beauty_filter_update(filter, settings);
+	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	blog(LOG_INFO, "[obs-beauty-filter] filter instance created (%s)",
+	     beauty_face_inference_worker_is_healthy(filter->inference_worker)
+		     ? "MediaPipe face region enabled"
+		     : "compatibility fallback");
+	#else
+	blog(LOG_INFO, "[obs-beauty-filter] filter instance created (compatibility fallback)");
+	#endif
 	return filter;
 }
 
