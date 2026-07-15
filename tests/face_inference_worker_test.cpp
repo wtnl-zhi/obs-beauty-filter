@@ -75,6 +75,11 @@ int main(int argc, char **argv)
 			beauty_face_inference_worker_destroy(worker);
 			return 1;
 		}
+	if (!beauty_face_inference_worker_is_healthy(worker)) {
+		std::fputs("worker became unhealthy after successful inference\n", stderr);
+		beauty_face_inference_worker_destroy(worker);
+		return 1;
+	}
 	beauty_face_inference_worker_destroy(worker);
 	std::puts("MediaPipe face inference worker blank-frame test passed");
 	return 0;

@@ -167,6 +167,14 @@ extern "C" bool beauty_face_inference_worker_wait_until_processed(
 	return true;
 }
 
+extern "C" bool beauty_face_inference_worker_is_healthy(struct beauty_face_inference_worker *worker)
+{
+	if (!worker)
+		return false;
+	std::lock_guard lock(worker->mutex);
+	return !worker->stop && worker->last_error[0] == '\0';
+}
+
 extern "C" size_t beauty_face_inference_worker_copy_tracks(
 	struct beauty_face_inference_worker *worker, struct beauty_face_track *tracks, size_t capacity,
 	uint64_t now_ns)

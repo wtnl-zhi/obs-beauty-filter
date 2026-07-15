@@ -35,6 +35,9 @@ bool beauty_face_inference_worker_wait_until_processed(struct beauty_face_infere
 							uint64_t timestamp_ms, uint32_t timeout_ms,
 							char *error, size_t error_size);
 
+/* False after a model invocation error; callers should use their compatibility path. */
+bool beauty_face_inference_worker_is_healthy(struct beauty_face_inference_worker *worker);
+
 size_t beauty_face_inference_worker_copy_tracks(struct beauty_face_inference_worker *worker,
 							 struct beauty_face_track *tracks, size_t capacity,
 							 uint64_t now_ns);

@@ -340,8 +340,8 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 		return;
 	}
 
-	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
-	if (filter->frame_bridge) {
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	if (filter->frame_bridge && beauty_face_inference_worker_is_healthy(filter->inference_worker)) {
 		gs_texture_t *input = beauty_filter_render_input(filter, target, (uint32_t)width,
 									 (uint32_t)height, source_space);
 		if (!input) {
