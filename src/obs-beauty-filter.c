@@ -11,6 +11,7 @@
 #include "face_tracker.h"
 #include "beauty_preset.h"
 #include "beauty_sampling.h"
+#include "beauty_settings_migration.h"
 
 #include <stdio.h>
 
@@ -71,21 +72,23 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 {
 	struct beauty_filter *filter = data;
 	struct beauty_preset_values preset_values = {0};
-	int preset = (int)obs_data_get_int(settings, "preset");
+	struct beauty_settings_migration migration = {
+		.settings_version = (int)obs_data_get_int(settings, "settings_version"),
+		.preset = (int)obs_data_get_int(settings, "preset"),
+		.smoothing_enabled = obs_data_get_bool(settings, "smoothing_enabled"),
+		.brighten_enabled = obs_data_get_bool(settings, "brighten_enabled"),
+		.rosy_enabled = obs_data_get_bool(settings, "rosy_enabled"),
+		.sharpness_enabled = obs_data_get_bool(settings, "sharpness_enabled"),
+	};
 	const int quality_mode = (int)obs_data_get_int(settings, "quality_mode");
-	const int settings_version = (int)obs_data_get_int(settings, "settings_version");
 
-	/* P0 saved only sliders. Preserve those values rather than applying Natural. */
-	if (settings_version < 1) {
-		preset = BEAUTY_PRESET_CUSTOM;
-		obs_data_set_int(settings, "preset", preset);
-	}
-	if (settings_version < 2) {
-		obs_data_set_bool(settings, "smoothing_enabled", true);
-		obs_data_set_bool(settings, "brighten_enabled", true);
-		obs_data_set_bool(settings, "rosy_enabled", true);
-		obs_data_set_bool(settings, "sharpness_enabled", true);
-		obs_data_set_int(settings, "settings_version", 2);
+	if (beauty_settings_migrate(&migration)) {
+		obs_data_set_int(settings, "settings_version", migration.settings_version);
+		obs_data_set_int(settings, "preset", migration.preset);
+		obs_data_set_bool(settings, "smoothing_enabled", migration.smoothing_enabled);
+		obs_data_set_bool(settings, "brighten_enabled", migration.brighten_enabled);
+		obs_data_set_bool(settings, "rosy_enabled", migration.rosy_enabled);
+		obs_data_set_bool(settings, "sharpness_enabled", migration.sharpness_enabled);
 	}
 
 	filter->enabled = obs_data_get_bool(settings, "enabled");
@@ -96,7 +99,7 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 	filter->mask_feather = (float)obs_data_get_double(settings, "mask_feather") / 100.0f;
 	filter->show_mask = obs_data_get_bool(settings, "show_mask");
 	filter->quality_mode = quality_mode;
-	if (beauty_preset_values_for(preset, &preset_values)) {
+	if (beauty_preset_values_for(migration.preset, &preset_values)) {
 		filter->smoothing = preset_values.smoothing / 100.0f;
 		filter->detail = preset_values.detail / 100.0f;
 		filter->brighten = preset_values.brighten / 100.0f;

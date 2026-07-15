@@ -43,6 +43,7 @@ set(OBS_BEAUTY_SOURCES
   src/obs-beauty-filter.c
   src/beauty_preset.c
   src/beauty_sampling.c
+  src/beauty_settings_migration.c
   src/face_tracker.c
   src/face_landmarks.c
 )
@@ -130,6 +131,15 @@ if(BUILD_TESTING)
   target_compile_features(beauty-sampling-test PRIVATE c_std_11)
   add_test(NAME beauty-sampling COMMAND beauty-sampling-test)
   add_dependencies(face-tracker-test beauty-sampling-test)
+
+  add_executable(beauty-settings-migration-test
+    tests/beauty_settings_migration_test.c
+    src/beauty_settings_migration.c
+  )
+  target_include_directories(beauty-settings-migration-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  target_compile_features(beauty-settings-migration-test PRIVATE c_std_11)
+  add_test(NAME beauty-settings-migration COMMAND beauty-settings-migration-test)
+  add_dependencies(face-tracker-test beauty-settings-migration-test)
 
   add_executable(obs-module-smoke-test tests/obs_module_smoke_test.c)
   target_include_directories(obs-module-smoke-test PRIVATE "${OBS_SOURCE_DIR}/libobs")
