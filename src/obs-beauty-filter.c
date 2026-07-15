@@ -37,6 +37,10 @@ struct beauty_filter {
 	gs_eparam_t *mouth_params[BEAUTY_MAX_FACES];
 
 	bool enabled;
+	bool smoothing_enabled;
+	bool brighten_enabled;
+	bool rosy_enabled;
+	bool sharpness_enabled;
 	float smoothing;
 	float detail;
 	float brighten;
@@ -71,10 +75,22 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 	if (settings_version < 1) {
 		preset = BEAUTY_PRESET_CUSTOM;
 		obs_data_set_int(settings, "preset", preset);
-		obs_data_set_int(settings, "settings_version", 1);
+	}
+	if (settings_version < 2) {
+		obs_data_set_bool(settings, "smoothing_enabled", true);
+		obs_data_set_bool(settings, "brighten_enabled", true);
+		obs_data_set_bool(settings, "rosy_enabled", true);
+		obs_data_set_bool(settings, "sharpness_enabled", true);
+		obs_data_set_int(settings, "settings_version", 2);
 	}
 
 	filter->enabled = obs_data_get_bool(settings, "enabled");
+	filter->smoothing_enabled = obs_data_get_bool(settings, "smoothing_enabled");
+	filter->brighten_enabled = obs_data_get_bool(settings, "brighten_enabled");
+	filter->rosy_enabled = obs_data_get_bool(settings, "rosy_enabled");
+	filter->sharpness_enabled = obs_data_get_bool(settings, "sharpness_enabled");
+	filter->mask_feather = (float)obs_data_get_double(settings, "mask_feather") / 100.0f;
+	filter->show_mask = obs_data_get_bool(settings, "show_mask");
 	if (beauty_preset_values_for(preset, &preset_values)) {
 		filter->smoothing = preset_values.smoothing / 100.0f;
 		filter->detail = preset_values.detail / 100.0f;
@@ -87,8 +103,6 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 		filter->brighten = (float)obs_data_get_double(settings, "brighten") / 100.0f;
 		filter->rosy = (float)obs_data_get_double(settings, "rosy") / 100.0f;
 		filter->sharpness = (float)obs_data_get_double(settings, "sharpness") / 100.0f;
-		filter->mask_feather = (float)obs_data_get_double(settings, "mask_feather") / 100.0f;
-		filter->show_mask = obs_data_get_bool(settings, "show_mask");
 	}
 
 	/* P0 uses this only to select the shader sample radius. */
@@ -247,6 +261,17 @@ static void beauty_filter_set_mask_controls(struct beauty_filter *filter)
 	gs_effect_set_float(filter->show_mask_param, filter->show_mask ? 1.0f : 0.0f);
 }
 
+static void beauty_filter_set_beauty_parameters(struct beauty_filter *filter)
+{
+	gs_effect_set_float(filter->smoothing_param,
+			    filter->smoothing_enabled ? filter->smoothing * filter->quality_scale : 0.0f);
+	gs_effect_set_float(filter->detail_param, filter->smoothing_enabled ? filter->detail : 0.0f);
+	gs_effect_set_float(filter->brighten_param, filter->brighten_enabled ? filter->brighten : 0.0f);
+	gs_effect_set_float(filter->rosy_param, filter->rosy_enabled ? filter->rosy : 0.0f);
+	gs_effect_set_float(filter->sharpness_param,
+			    filter->sharpness_enabled ? filter->sharpness : 0.0f);
+}
+
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 static void beauty_filter_set_face_mask(struct beauty_filter *filter, uint64_t now_ns)
 {
@@ -359,11 +384,7 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 			gs_effect_set_texture_srgb(filter->image_param, input);
 		else
 			gs_effect_set_texture(filter->image_param, input);
-		gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
-		gs_effect_set_float(filter->detail_param, filter->detail);
-		gs_effect_set_float(filter->brighten_param, filter->brighten);
-		gs_effect_set_float(filter->rosy_param, filter->rosy);
-		gs_effect_set_float(filter->sharpness_param, filter->sharpness);
+		beauty_filter_set_beauty_parameters(filter);
 		gs_effect_set_float(filter->texture_width_param, width);
 		gs_effect_set_float(filter->texture_height_param, height);
 		gs_blend_state_push();
@@ -377,13 +398,9 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 	}
 	#endif
 
-	gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
+	beauty_filter_set_beauty_parameters(filter);
 	beauty_filter_set_face_mask_disabled(filter);
 	beauty_filter_set_mask_controls(filter);
-	gs_effect_set_float(filter->detail_param, filter->detail);
-	gs_effect_set_float(filter->brighten_param, filter->brighten);
-	gs_effect_set_float(filter->rosy_param, filter->rosy);
-	gs_effect_set_float(filter->sharpness_param, filter->sharpness);
 	gs_effect_set_float(filter->texture_width_param, width);
 	gs_effect_set_float(filter->texture_height_param, height);
 
@@ -400,6 +417,9 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	obs_property_t *quality = NULL;
 
 	obs_properties_add_bool(props, "enabled", obs_module_text("Filter.Enabled"));
+	obs_property_t *manual = obs_properties_add_bool(props, "smoothing_enabled",
+							  obs_module_text("Filter.EnableSmoothing"));
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	obs_property_t *preset = obs_properties_add_list(props, "preset", obs_module_text("Filter.Preset"),
 								     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(preset, obs_module_text("Preset.Natural"), BEAUTY_PRESET_NATURAL);
@@ -415,23 +435,30 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	obs_properties_add_text(props, "runtime_status", obs_module_text("Filter.RuntimeStatus"),
 				OBS_TEXT_INFO);
 
-	obs_property_t *manual = obs_properties_add_float_slider(
-		props, "smoothing", obs_module_text("Filter.Smoothing"), 0.0, 100.0, 1.0);
+	manual = obs_properties_add_float_slider(props, "smoothing", obs_module_text("Filter.Smoothing"),
+						     0.0, 100.0, 1.0);
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	manual = obs_properties_add_float_slider(props, "detail", obs_module_text("Filter.Detail"), 0.0,
 						    100.0, 1.0);
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_bool(props, "brighten_enabled", obs_module_text("Filter.EnableBrighten"));
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	manual = obs_properties_add_float_slider(props, "brighten", obs_module_text("Filter.Brighten"),
 						    0.0, 100.0, 1.0);
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_bool(props, "rosy_enabled", obs_module_text("Filter.EnableRosy"));
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	manual = obs_properties_add_float_slider(props, "rosy", obs_module_text("Filter.Rosy"), 0.0,
-						    100.0, 1.0);
+						100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_bool(props, "sharpness_enabled", obs_module_text("Filter.EnableSharpness"));
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	manual = obs_properties_add_float_slider(props, "sharpness", obs_module_text("Filter.Sharpness"),
 						    0.0, 100.0, 1.0);
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
-	obs_properties_add_float_slider(props, "mask_feather", obs_module_text("Filter.MaskFeather"),
-						0.0, 30.0, 1.0);
+	manual = obs_properties_add_float_slider(props, "mask_feather", obs_module_text("Filter.MaskFeather"),
+						     0.0, 30.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	obs_properties_add_bool(props, "show_mask", obs_module_text("Filter.ShowMask"));
 	return props;
 }
@@ -439,15 +466,19 @@ static obs_properties_t *beauty_filter_properties(void *data)
 static void beauty_filter_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_bool(settings, "enabled", true);
-	obs_data_set_default_int(settings, "settings_version", 1);
+	obs_data_set_default_int(settings, "settings_version", 2);
 	obs_data_set_default_int(settings, "preset", BEAUTY_PRESET_NATURAL);
 	obs_data_set_default_int(settings, "quality_mode", 0);
 	obs_data_set_default_string(settings, "runtime_status", obs_module_text("Status.Loading"));
 	obs_data_set_default_double(settings, "smoothing", 35.0);
+	obs_data_set_default_bool(settings, "smoothing_enabled", true);
 	obs_data_set_default_double(settings, "detail", 70.0);
 	obs_data_set_default_double(settings, "brighten", 15.0);
+	obs_data_set_default_bool(settings, "brighten_enabled", true);
 	obs_data_set_default_double(settings, "rosy", 10.0);
+	obs_data_set_default_bool(settings, "rosy_enabled", true);
 	obs_data_set_default_double(settings, "sharpness", 10.0);
+	obs_data_set_default_bool(settings, "sharpness_enabled", true);
 	obs_data_set_default_double(settings, "mask_feather", 12.0);
 	obs_data_set_default_bool(settings, "show_mask", false);
 }
