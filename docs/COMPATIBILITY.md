@@ -16,6 +16,7 @@
 - 2026-07-15：Apple Silicon P1 构建新增 `obs-module-smoke` 自动测试；它通过 OBS `libobs` 直接加载已构建 bundle，验证版本化滤镜类型 `obs_beauty_filter_v2` 已注册，并能读取中文“预设”等属性。P1 构建共 7/7 测试通过。该测试不创建摄像头场景，不能替代下面的实机验收。
 - 2026-07-15：设置迁移逻辑已抽为 `beauty-settings-migration` 单元测试，覆盖 P0 滑杆设置转为“自定义”预设、v1 新增独立开关的默认迁移和当前 v2 设置不被改写。Apple Silicon P1 构建共 8/8 测试通过。
 - 2026-07-15：Apple Silicon P1 bundle 通过 `cmake --install` 安装到新的临时前缀后，已用 `libobs` 重新加载；模型、中文资源、MediaPipe 与 OpenCV 运行时都在安装副本中，ad-hoc 签名校验通过。该流程由 `scripts/verify-macos-p1-install.zsh` 固化，仍不等同于正式签名、公证或真实场景验收。
+- 2026-07-15：真实 MediaPipe 推理与工作器测试均覆盖不存在的模型文件，确认创建会返回错误而不产生伪健康对象；滤镜创建时已将该失败映射为兼容 Shader 回退。此为模型不可用的自动回归证据，不替代 OBS 画面不断流的实机检查。
 - Windows x64 的同名 CTest 入口已配置：P1 构建会将 MediaPipe/OpenCV DLL 放到模块旁，并以 `data` 资源目录加载模块。它尚未在 Windows 主机执行，不能作为 Windows 兼容结论。
 - P1 的完整从零复现仍要求在独立干净机器重新构建固定版本的 MediaPipe/OpenCV，并完成端到端复测。
 

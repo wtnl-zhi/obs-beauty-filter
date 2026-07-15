@@ -8,12 +8,24 @@
 
 #include <cassert>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 int main(int argc, char **argv)
 {
 	assert(argc == 2);
 	char error[512] = {};
+	const std::string missing_model = std::string(argv[1]) + ".missing";
+	if (beauty_face_inference_worker_create(missing_model.c_str(), BEAUTY_MAX_FACES, 0.35f,
+					      UINT64_C(500000000), error, sizeof(error))) {
+		std::fputs("missing model unexpectedly created worker\n", stderr);
+		return 1;
+	}
+	if (!error[0]) {
+		std::fputs("missing worker model did not return an error\n", stderr);
+		return 1;
+	}
+	error[0] = '\0';
 	beauty_face_inference_worker *worker = beauty_face_inference_worker_create(
 		argv[1], BEAUTY_MAX_FACES, 0.35f, UINT64_C(500000000), error, sizeof(error));
 	if (!worker) {

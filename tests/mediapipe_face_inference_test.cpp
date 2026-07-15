@@ -8,12 +8,23 @@
 
 #include <cassert>
 #include <cstdio>
+#include <string>
 #include <vector>
 
 int main(int argc, char **argv)
 {
 	assert(argc == 2);
 	char error[512] = {};
+	const std::string missing_model = std::string(argv[1]) + ".missing";
+	if (beauty_mediapipe_face_inference_create(missing_model.c_str(), BEAUTY_MAX_FACES, error,
+						   sizeof(error))) {
+		std::fputs("missing model unexpectedly created inference\n", stderr);
+		return 1;
+	}
+	if (!error[0]) {
+		std::fputs("missing model did not return an error\n", stderr);
+		return 1;
+	}
 	beauty_face_inference *inference =
 		beauty_mediapipe_face_inference_create(argv[1], BEAUTY_MAX_FACES, error, sizeof(error));
 	if (!inference) {
