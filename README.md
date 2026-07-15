@@ -29,6 +29,14 @@ cmake --build --preset macos-arm64
 
 输出为 `build/macos-arm64/RelWithDebInfo/obs-beauty-filter.plugin`。将其复制到 `~/Library/Application Support/obs-studio/plugins/` 后重启 OBS，在摄像头源的“滤镜”中添加“高级美颜”。正式分发前必须使用 Apple Developer ID 签名并公证。
 
+构建后的 P1 安装副本可用下列命令验证；它会安装到全新临时目录，并检查 bundle 资源、运行时、`libobs` 模块加载和 ad-hoc 签名完整性：
+
+```zsh
+scripts/verify-macos-p1-install.zsh
+```
+
+这不是 Developer ID/notarization 或真实摄像头场景验收的替代。
+
 要构建带 P1 人脸运行时的 bundle，先下载模型并生成 Apple Silicon 原生依赖：
 
 ```sh
