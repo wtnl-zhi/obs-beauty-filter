@@ -131,6 +131,20 @@ if(BUILD_TESTING)
   add_test(NAME beauty-sampling COMMAND beauty-sampling-test)
   add_dependencies(face-tracker-test beauty-sampling-test)
 
+  if(APPLE)
+    add_executable(obs-module-smoke-test tests/obs_module_smoke_test.c)
+    target_include_directories(obs-module-smoke-test PRIVATE "${OBS_SOURCE_DIR}/libobs")
+    target_link_libraries(obs-module-smoke-test PRIVATE "${OBS_LIBRARY}")
+    target_compile_features(obs-module-smoke-test PRIVATE c_std_11)
+    add_test(NAME obs-module-smoke
+      COMMAND obs-module-smoke-test
+        "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/MacOS/obs-beauty-filter"
+        "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Resources")
+    # The test needs the post-build bundle resources and the plugin binary.
+    add_dependencies(obs-module-smoke-test obs-beauty-filter)
+    add_dependencies(face-tracker-test obs-module-smoke-test)
+  endif()
+
   if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
     add_executable(face-inference-test
       tests/mediapipe_face_inference_test.cpp
