@@ -24,12 +24,15 @@ plugin="$payload/obs-beauty-filter.plugin"
 [[ -f "$plugin/Contents/Resources/beauty.effect" ]] || exit 1
 [[ -f "$plugin/Contents/Resources/locale/zh-CN.ini" ]] || exit 1
 [[ -f "$plugin/Contents/Resources/face_landmarker.task" ]] || exit 1
+[[ -f "$repo_root/third_party/licenses/Apache-2.0.txt" ]] || { print -u2 "缺少 MediaPipe / 模型许可文本"; exit 1; }
+[[ -f "$repo_root/third_party/licenses/OpenCV-BSD-3-Clause.txt" ]] || { print -u2 "缺少 OpenCV 许可文本"; exit 1; }
 
 codesign --force --deep --options runtime --timestamp --sign "$identity" "$plugin"
 codesign --verify --deep --strict --verbose=2 "$plugin"
 
 cp "$repo_root/LICENSE" "$payload/LICENSE"
 cp "$repo_root/docs/THIRD_PARTY.md" "$payload/THIRD_PARTY.md"
+cp -R "$repo_root/third_party/licenses" "$payload/THIRD_PARTY_LICENSES"
 
 mkdir -p "$output_dir"
 archive="$output_dir/obs-beauty-filter-${version}-macos-arm64.zip"

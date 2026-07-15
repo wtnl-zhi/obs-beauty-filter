@@ -10,6 +10,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $pluginRoot = Join-Path $InstallRoot 'obs-beauty-filter'
+$thirdPartyLicenseDir = Join-Path $repoRoot 'third_party/licenses'
 $requiredFiles = @(
   'bin/64bit/obs-beauty-filter.dll',
   'bin/64bit/face_landmarker.dll',
@@ -27,6 +28,11 @@ foreach ($relativePath in $requiredFiles) {
     throw "发布包缺少必需文件：$relativePath"
   }
 }
+foreach ($licenseName in @('Apache-2.0.txt', 'OpenCV-BSD-3-Clause.txt')) {
+  if (-not (Test-Path (Join-Path $thirdPartyLicenseDir $licenseName))) {
+    throw "发布包缺少第三方许可文本：$licenseName"
+  }
+}
 
 $stage = Join-Path ([IO.Path]::GetTempPath()) ("obs-beauty-release-" + [guid]::NewGuid())
 $payload = Join-Path $stage "obs-beauty-filter-$Version-windows-x64"
@@ -35,6 +41,7 @@ try {
   Copy-Item $pluginRoot (Join-Path $payload 'obs-beauty-filter') -Recurse -Force
   Copy-Item (Join-Path $repoRoot 'LICENSE') (Join-Path $payload 'LICENSE') -Force
   Copy-Item (Join-Path $repoRoot 'docs/THIRD_PARTY.md') (Join-Path $payload 'THIRD_PARTY.md') -Force
+  Copy-Item $thirdPartyLicenseDir (Join-Path $payload 'THIRD_PARTY_LICENSES') -Recurse -Force
 
   New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
   $archive = Join-Path $ReleaseDir "obs-beauty-filter-$Version-windows-x64.zip"

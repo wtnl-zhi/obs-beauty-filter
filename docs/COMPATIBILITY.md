@@ -12,7 +12,8 @@
 ## 可复现构建证据
 
 - 2026-07-15：从 GitHub `main` 的全新浅克隆，在 Apple Silicon 上按 README 指定 OBS 31 开发依赖完成 P0 构建与 4/4 测试。
-- P1 的完整从零复现还要求通过脚本下载并校验 `face_landmarker.task`，以及构建固定版本的 MediaPipe/OpenCV；该路径已在当前开发环境验证，但尚未在独立干净机器完成端到端复测。
+- 2026-07-15：同一全新浅克隆通过 `scripts/fetch-models.zsh` 重新下载并校验 `face_landmarker.task`，以固定的 Apple Silicon MediaPipe/OpenCV 原生运行时完成 P1 配置、构建和 6/6 测试。这证明源码、模型和已构建运行时能完整装配；运行时本身仍复用了开发机已构建产物。
+- P1 的完整从零复现仍要求在独立干净机器重新构建固定版本的 MediaPipe/OpenCV，并完成端到端复测。
 
 ## 硬件基线
 

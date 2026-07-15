@@ -5,9 +5,9 @@
 | 组件 | 用途 | 暂定版本/来源 | 许可证状态 | 接入状态 |
 | --- | --- | --- | --- | --- |
 | OBS Studio SDK / libobs | 插件 API 与渲染接口 | OBS Studio 31+ | GPL-2.0-or-later | P0 使用 API；不打包 libobs。 |
-| MediaPipe | 人脸关键点推理框架 | `v0.10.35`，commit `f8ef212d5c962c0e853db7e59d217056b187084b` | Apache-2.0；发布包需附带 NOTICE | P1 已接入 C API；macOS arm64 原生构建已验证，Windows x64 构建脚本待实机验证。 |
-| MediaPipe Face Landmarker / Face Mesh V2 | 人脸轮廓、眼睛、嘴唇保护区域 | `face_landmarker.task`，float16/1，SHA-256 `64184e…bc9ff` | Face Mesh V2 模型卡标注 Apache-2.0；具体来源和校验记录在 `models/face_landmarker.json` | P1 暂定模型；二进制不提交，按校验脚本获取。 |
-| OpenCV | MediaPipe CPU 图像转张量 | macOS：`3.4.11`（Core / Imgproc）；Windows：官方 `3.4.10` x64 `opencv_world3410.dll` | BSD-3-Clause；发布包需附带 LICENSE / NOTICE | macOS 运行时已验证；Windows 构建脚本待实机验证。 |
+| MediaPipe | 人脸关键点推理框架 | `v0.10.35`，commit `f8ef212d5c962c0e853db7e59d217056b187084b` | Apache-2.0；随发布包提供 `THIRD_PARTY_LICENSES/Apache-2.0.txt` | P1 已接入 C API；macOS arm64 原生构建已验证，Windows x64 构建脚本待实机验证。 |
+| MediaPipe Face Landmarker / Face Mesh V2 | 人脸轮廓、眼睛、嘴唇保护区域 | `face_landmarker.task`，float16/1，SHA-256 `64184e…bc9ff` | 模型元数据标注 Apache-2.0；随发布包提供 `THIRD_PARTY_LICENSES/Apache-2.0.txt`；具体来源和校验记录在 `models/face_landmarker.json` | P1 暂定模型；二进制不提交，按校验脚本获取。 |
+| OpenCV | MediaPipe CPU 图像转张量 | macOS：`3.4.11`（Core / Imgproc）；Windows：官方 `3.4.10` x64 `opencv_world3410.dll` | BSD-3-Clause；随发布包提供 `THIRD_PARTY_LICENSES/OpenCV-BSD-3-Clause.txt` | macOS 运行时已验证；Windows 构建脚本待实机验证。 |
 | ONNX Runtime / Core ML | 备用推理后端评估 | 待定 | 待定 | 不在 P1 首个集成范围。 |
 
 ## P1 技术决定
@@ -18,6 +18,7 @@ P1 先采用 **MediaPipe Face Landmarker**，而非直接引入人脸解析（fa
 - MediaPipe 是跨平台项目，代码为 Apache-2.0；官方 Face Mesh V2 模型卡也标注 Apache-2.0。
 - MediaPipe C API 在 macOS arm64 使用 CPU/XNNPACK；其图像转张量路径依赖 OpenCV，因此发行包需带上最小 Core/Imgproc 动态库。GPU 与 OpenCV 以外的模块均不在此构建范围。
 - 首次发布前必须复核模型下载 URL、SHA-256、模型版本、许可证文本与 NOTICE；若模型包的条款与此台账不符，则停止打包并重新选型。
+- 两个发布脚本会拒绝在缺少 `third_party/licenses` 中的许可文本时生成归档；归档内的 `THIRD_PARTY_LICENSES` 目录必须与本台账一同交付。
 
 该方案的 mask 是“脸部区域 + 五官保护区”，不等同于像素级皮肤解析。祛痘、口红和精细妆容需要后续另行选择并审查 face parsing 模型。
 
