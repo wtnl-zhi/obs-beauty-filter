@@ -131,19 +131,24 @@ if(BUILD_TESTING)
   add_test(NAME beauty-sampling COMMAND beauty-sampling-test)
   add_dependencies(face-tracker-test beauty-sampling-test)
 
+  add_executable(obs-module-smoke-test tests/obs_module_smoke_test.c)
+  target_include_directories(obs-module-smoke-test PRIVATE "${OBS_SOURCE_DIR}/libobs")
+  target_link_libraries(obs-module-smoke-test PRIVATE "${OBS_LIBRARY}")
+  target_compile_features(obs-module-smoke-test PRIVATE c_std_11)
   if(APPLE)
-    add_executable(obs-module-smoke-test tests/obs_module_smoke_test.c)
-    target_include_directories(obs-module-smoke-test PRIVATE "${OBS_SOURCE_DIR}/libobs")
-    target_link_libraries(obs-module-smoke-test PRIVATE "${OBS_LIBRARY}")
-    target_compile_features(obs-module-smoke-test PRIVATE c_std_11)
     add_test(NAME obs-module-smoke
       COMMAND obs-module-smoke-test
         "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/MacOS/obs-beauty-filter"
         "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Resources")
-    # The test needs the post-build bundle resources and the plugin binary.
-    add_dependencies(obs-module-smoke-test obs-beauty-filter)
-    add_dependencies(face-tracker-test obs-module-smoke-test)
+  else()
+    add_test(NAME obs-module-smoke
+      COMMAND obs-module-smoke-test
+        "$<TARGET_FILE:obs-beauty-filter>"
+        "${CMAKE_CURRENT_SOURCE_DIR}/data")
   endif()
+  # The test needs the post-build plugin binary and its resources/runtime.
+  add_dependencies(obs-module-smoke-test obs-beauty-filter)
+  add_dependencies(face-tracker-test obs-module-smoke-test)
 
   if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
     add_executable(face-inference-test
@@ -245,6 +250,22 @@ if(APPLE)
     )
   ]])
 else()
+  if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+    # Keep DLL dependencies beside the build artifact so Windows CTest loads
+    # the same native runtime that will later be installed into bin/64bit.
+    add_custom_command(TARGET obs-beauty-filter POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${MEDIAPIPE_FACE_LANDMARKER_RUNTIME}"
+        "$<TARGET_FILE_DIR:obs-beauty-filter>"
+    )
+    foreach(runtime_library IN LISTS MEDIAPIPE_RUNTIME_LIBRARIES)
+      add_custom_command(TARGET obs-beauty-filter POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${runtime_library}"
+          "$<TARGET_FILE_DIR:obs-beauty-filter>"
+      )
+    endforeach()
+  endif()
   install(TARGETS obs-beauty-filter
     RUNTIME DESTINATION "obs-beauty-filter/bin/64bit"
     LIBRARY DESTINATION "obs-beauty-filter/bin/64bit"

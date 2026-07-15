@@ -52,10 +52,11 @@ scripts\build-mediapipe-windows-x64.ps1
 ```powershell
 cmake --preset windows-x64 -DOBS_SOURCE_DIR=C:/src/obs-studio -DOBS_LIBRARY=C:/path/to/obs.lib -DOBS_BEAUTY_ENABLE_MEDIAPIPE=ON -DMEDIAPIPE_ROOT=$env:TEMP/obs-beauty-third-party/mediapipe-0.10.35 -DMEDIAPIPE_FACE_LANDMARKER_LIBRARY=third_party/prebuilt/windows-x64/face_landmarker.lib -DMEDIAPIPE_FACE_LANDMARKER_RUNTIME=third_party/prebuilt/windows-x64/face_landmarker.dll -DMEDIAPIPE_RUNTIME_LIBRARIES=third_party/prebuilt/windows-x64/opencv_world3410.dll
 cmake --build --preset windows-x64 --config RelWithDebInfo
+ctest --test-dir build/windows-x64 --config RelWithDebInfo --output-on-failure
 cmake --install build/windows-x64 --config RelWithDebInfo --prefix dist
 ```
 
-安装布局遵循 OBS 的 `obs-beauty-filter/bin/64bit` 与 `obs-beauty-filter/data` 目录结构。该脚本和打包参数已完成代码审查，尚待 Windows x64 原生构建机和 OBS 实机验证。
+其中 `obs-module-smoke` 会直接加载构建出的 DLL，确认 MediaPipe/OpenCV 运行时、滤镜注册和中文资源可用；安装布局遵循 OBS 的 `obs-beauty-filter/bin/64bit` 与 `obs-beauty-filter/data` 目录结构。该脚本和打包参数已完成代码审查，尚待 Windows x64 原生构建机和 OBS 实机验证。
 
 ## 开发文档
 
