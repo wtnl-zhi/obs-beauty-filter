@@ -43,6 +43,10 @@ struct beauty_face_tracker {
 	uint64_t stale_after_ns;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void beauty_face_tracker_init(struct beauty_face_tracker *tracker, float smoothing,
 				      uint64_t stale_after_ns);
 
@@ -55,3 +59,7 @@ void beauty_face_tracker_update(struct beauty_face_tracker *tracker,
 				uint64_t now_ns);
 
 size_t beauty_face_tracker_active_count(const struct beauty_face_tracker *tracker);
+
+#ifdef __cplusplus
+}
+#endif

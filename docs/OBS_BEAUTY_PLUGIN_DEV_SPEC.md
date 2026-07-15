@@ -1,6 +1,6 @@
 # OBS 双端高阶美颜滤镜插件：开发说明（评审稿）
 
-> 实施状态（2026-07-15）：P0 已完成 macOS arm64 本机构建验证。P1 已完成 MediaPipe Face Landmarker 的 Apple Silicon 原生运行时、模型加载和关键点适配，并通过真实模型推理测试；OBS 异步帧桥与 GPU 人脸 mask 尚未接入。
+> 实施状态（2026-07-15）：P0 已完成 macOS arm64 本机构建验证。P1 已完成 MediaPipe Face Landmarker 的 Apple Silicon 原生运行时、模型加载、关键点适配和有界后台推理工作器，并通过真实模型推理测试；OBS 纹理帧桥与 GPU 人脸 mask 尚未接入。
 
 ## 1. 文档目的
 
@@ -86,7 +86,7 @@ OBS 输入视频帧
 | --- | --- |
 | OBS Filter Adapter | 注册滤镜、创建/销毁实例、读取属性、串联前后滤镜。 |
 | Frame Bridge | 从 OBS 图形纹理安全取得低分辨率输入，管理 CPU/GPU 间传递。 |
-| Inference Engine | 加载模型、选择执行后端、异步运行人脸检测与分割。 |
+| Inference Engine | 加载模型、选择执行后端、在单独工作线程异步运行人脸检测与分割；队列仅保留最新帧。 |
 | Face Tracker | 关联多帧人脸、平滑位置/尺寸/置信度，防止跳动。 |
 | Mask Processor | 羽化、扩张/收缩、时序稳定、遮挡与边缘处理。 |
 | Beauty Renderer | 基于 OBS `gs_effect` / `.effect` Shader 执行局部美颜。 |

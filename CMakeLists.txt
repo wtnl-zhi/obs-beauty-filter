@@ -46,7 +46,11 @@ if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
       message(FATAL_ERROR "MediaPipe runtime library does not exist: ${runtime_library}")
     endif()
   endforeach()
-  list(APPEND OBS_BEAUTY_SOURCES src/mediapipe_face_landmarker.cpp)
+  find_package(Threads REQUIRED)
+  list(APPEND OBS_BEAUTY_SOURCES
+    src/mediapipe_face_landmarker.cpp
+    src/face_inference_worker.cpp
+  )
 endif()
 
 add_library(obs-beauty-filter MODULE ${OBS_BEAUTY_SOURCES})
@@ -57,7 +61,10 @@ target_compile_features(obs-beauty-filter PRIVATE c_std_11)
 
 if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
   target_include_directories(obs-beauty-filter PRIVATE "${MEDIAPIPE_ROOT}")
-  target_link_libraries(obs-beauty-filter PRIVATE "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}")
+  target_link_libraries(obs-beauty-filter PRIVATE
+    "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
+    Threads::Threads
+  )
   target_compile_features(obs-beauty-filter PRIVATE cxx_std_20)
   set_target_properties(obs-beauty-filter PROPERTIES
     BUILD_WITH_INSTALL_RPATH TRUE
@@ -103,10 +110,29 @@ if(BUILD_TESTING)
     target_compile_features(face-inference-test PRIVATE cxx_std_20)
     add_test(NAME face-inference
       COMMAND face-inference-test "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task")
+    add_executable(face-inference-worker-test
+      tests/face_inference_worker_test.cpp
+      src/face_inference_worker.cpp
+      src/mediapipe_face_landmarker.cpp
+      src/face_landmarks.c
+      src/face_tracker.c
+    )
+    target_include_directories(face-inference-worker-test PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/src"
+      "${MEDIAPIPE_ROOT}"
+    )
+    target_link_libraries(face-inference-worker-test PRIVATE
+      "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
+      ${MEDIAPIPE_RUNTIME_LIBRARIES}
+      Threads::Threads
+    )
+    target_compile_features(face-inference-worker-test PRIVATE cxx_std_20)
+    add_test(NAME face-inference-worker
+      COMMAND face-inference-worker-test "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task")
     # The Xcode generator can omit a test-only executable from ALL_BUILD.
     # Keep the inference smoke test in the default P1 build through an
     # existing default target, so `ctest` never sees an absent executable.
-    add_dependencies(face-tracker-test face-inference-test)
+    add_dependencies(face-tracker-test face-inference-test face-inference-worker-test)
   endif()
 endif()
 

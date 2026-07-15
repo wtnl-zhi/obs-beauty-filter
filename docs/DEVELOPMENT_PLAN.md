@@ -17,14 +17,14 @@
 ## 当前进度
 
 - P0：已完成 macOS arm64 构建与安装包结构验证。
-- P1：进行中。已固定 MediaPipe 0.10.35、Face Landmarker 模型与许可证台账；已实现关键点转换、多人脸观测关联与时序平滑，并完成 Apple Silicon MediaPipe + OpenCV 原生运行时、模型加载与真实推理测试。尚未接入 OBS 异步帧桥与 GPU 局部 mask。
+- P1：进行中。已固定 MediaPipe 0.10.35、Face Landmarker 模型与许可证台账；已实现关键点转换、多人脸观测关联与时序平滑，以及只保留最新帧的后台推理工作器，并完成 Apple Silicon MediaPipe + OpenCV 原生运行时、模型加载、真实推理与工作器测试。尚未接入 OBS 纹理帧桥与 GPU 局部 mask。
 - P2–P4：未开始。
 
 ## P1 实施顺序
 
 1. 固化模型包来源、版本、SHA-256 与 Apache-2.0 许可证记录。（已完成，模型按脚本复现下载。）
 2. 建立推理适配层，隔离 MediaPipe、Core ML 与 Windows 后端差异。（已完成 MediaPipe C API 适配层。）
-3. 从 OBS 图形纹理安全复制低分辨率帧到后台工作线程。（下一步。）
+3. 从 OBS 图形纹理安全复制低分辨率帧并提交至后台工作线程。（下一步；工作器已完成。）
 4. 使用关键点构建脸部轮廓、眼睛/眉毛/嘴唇保护区 mask。
 5. 对 mask 做跟踪、时序平滑、羽化与异常回退。
 6. 将 mask 上传到 Shader，在完整分辨率画面完成局部磨皮、提亮、红润与锐化。
