@@ -49,11 +49,14 @@ struct beauty_filter {
 	float mask_feather;
 	bool show_mask;
 	float quality_scale;
+	int quality_mode;
 
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 	struct beauty_face_inference_worker *inference_worker;
 	struct beauty_frame_bridge *frame_bridge;
 	gs_texrender_t *source_render;
+	bool auto_sampling_degraded;
+	struct beauty_sampling_policy sampling_policy;
 #endif
 };
 
@@ -91,6 +94,7 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 	filter->sharpness_enabled = obs_data_get_bool(settings, "sharpness_enabled");
 	filter->mask_feather = (float)obs_data_get_double(settings, "mask_feather") / 100.0f;
 	filter->show_mask = obs_data_get_bool(settings, "show_mask");
+	filter->quality_mode = quality_mode;
 	if (beauty_preset_values_for(preset, &preset_values)) {
 		filter->smoothing = preset_values.smoothing / 100.0f;
 		filter->detail = preset_values.detail / 100.0f;
@@ -120,10 +124,10 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 	if (filter->frame_bridge) {
-		const struct beauty_sampling_policy sampling =
-			beauty_sampling_policy_for_quality(quality_mode);
-		beauty_frame_bridge_set_sampling(filter->frame_bridge, sampling.longest_edge,
-								 sampling.interval_ns);
+		filter->auto_sampling_degraded = false;
+		filter->sampling_policy = beauty_sampling_policy_for_quality(quality_mode);
+		beauty_frame_bridge_set_sampling(filter->frame_bridge, filter->sampling_policy.longest_edge,
+							 filter->sampling_policy.interval_ns);
 	}
 #endif
 }
@@ -374,6 +378,20 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 			return;
 		}
 		const uint64_t now_ns = os_gettime_ns();
+		if (filter->quality_mode == 0) {
+			const bool degraded = beauty_sampling_auto_is_degraded(
+				filter->auto_sampling_degraded,
+				beauty_face_inference_worker_last_inference_duration_ns(filter->inference_worker));
+			if (degraded != filter->auto_sampling_degraded) {
+				filter->auto_sampling_degraded = degraded;
+				filter->sampling_policy = beauty_sampling_policy_for_quality(degraded ? 1 : 0);
+				beauty_frame_bridge_set_sampling(filter->frame_bridge,
+								      filter->sampling_policy.longest_edge,
+								      filter->sampling_policy.interval_ns);
+				blog(LOG_INFO, "[obs-beauty-filter] auto sampling switched to %s tier",
+				     degraded ? "compatible" : "automatic");
+			}
+		}
 		beauty_frame_bridge_tick(filter->frame_bridge, input, now_ns);
 		beauty_filter_set_face_mask(filter, now_ns);
 		beauty_filter_set_mask_controls(filter);

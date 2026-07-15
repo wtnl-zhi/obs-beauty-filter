@@ -23,5 +23,9 @@ int main(void)
 	return expect_policy(0, 256, UINT64_C(100000000)) ||
 	       expect_policy(1, 192, UINT64_C(166666667)) ||
 	       expect_policy(2, 384, UINT64_C(66666667)) ||
-	       expect_policy(99, 256, UINT64_C(100000000));
+	       expect_policy(99, 256, UINT64_C(100000000)) ||
+	       beauty_sampling_auto_is_degraded(false, UINT64_C(120000000)) ||
+	       !beauty_sampling_auto_is_degraded(false, UINT64_C(120000001)) ||
+	       !beauty_sampling_auto_is_degraded(true, UINT64_C(75000000)) ||
+	       beauty_sampling_auto_is_degraded(true, UINT64_C(74999999));
 }

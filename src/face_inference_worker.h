@@ -38,6 +38,10 @@ bool beauty_face_inference_worker_wait_until_processed(struct beauty_face_infere
 /* False after a model invocation error; callers should use their compatibility path. */
 bool beauty_face_inference_worker_is_healthy(struct beauty_face_inference_worker *worker);
 
+/* Returns the most recent model invocation duration, or zero before the first result. */
+uint64_t beauty_face_inference_worker_last_inference_duration_ns(
+	struct beauty_face_inference_worker *worker);
+
 size_t beauty_face_inference_worker_copy_tracks(struct beauty_face_inference_worker *worker,
 							 struct beauty_face_track *tracks, size_t capacity,
 							 uint64_t now_ns);

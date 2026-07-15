@@ -38,6 +38,7 @@ struct beauty_face_inference_worker {
 	bool has_submitted_timestamp = false;
 	uint64_t latest_submitted_timestamp_ms = 0;
 	uint64_t latest_processed_timestamp_ms = 0;
+	uint64_t last_inference_duration_ns = 0;
 	char last_error[512] = {};
 };
 
@@ -76,13 +77,19 @@ static void worker_main(struct beauty_face_inference_worker *worker)
 		struct beauty_face_observation observations[BEAUTY_MAX_FACES] = {};
 		size_t observation_count = 0;
 		char error[sizeof(worker->last_error)] = {};
+		const auto started_at = std::chrono::steady_clock::now();
 		const enum beauty_face_inference_status status = beauty_face_inference_detect(
 			worker->inference, &inference_frame, observations, BEAUTY_MAX_FACES,
 			&observation_count, error, sizeof(error));
+		const uint64_t duration_ns = static_cast<uint64_t>(
+			std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() -
+								       started_at)
+				.count());
 
 		{
 			std::lock_guard lock(worker->mutex);
 			worker->latest_processed_timestamp_ms = frame.timestamp_ms;
+			worker->last_inference_duration_ns = duration_ns;
 			if (status == BEAUTY_FACE_INFERENCE_OK) {
 				beauty_face_tracker_update(&worker->tracker, observations, observation_count,
 							 frame.timestamp_ms * UINT64_C(1000000));
@@ -173,6 +180,15 @@ extern "C" bool beauty_face_inference_worker_is_healthy(struct beauty_face_infer
 		return false;
 	std::lock_guard lock(worker->mutex);
 	return !worker->stop && worker->last_error[0] == '\0';
+}
+
+extern "C" uint64_t beauty_face_inference_worker_last_inference_duration_ns(
+	struct beauty_face_inference_worker *worker)
+{
+	if (!worker)
+		return 0;
+	std::lock_guard lock(worker->mutex);
+	return worker->last_inference_duration_ns;
 }
 
 extern "C" size_t beauty_face_inference_worker_copy_tracks(
