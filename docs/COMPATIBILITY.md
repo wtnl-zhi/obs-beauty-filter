@@ -9,6 +9,11 @@
 | Windows | Windows 10 22H2+，x64 | 已提供 VS2022 x64 构建与发布脚本；原生构建、安装和 OBS 实机验证待完成。 |
 | Intel Mac / Linux / Windows ARM | 不支持 | CMake 配置会拒绝这些目标。 |
 
+## 可复现构建证据
+
+- 2026-07-15：从 GitHub `main` 的全新浅克隆，在 Apple Silicon 上按 README 指定 OBS 31 开发依赖完成 P0 构建与 4/4 测试。
+- P1 的完整从零复现还要求通过脚本下载并校验 `face_landmarker.task`，以及构建固定版本的 MediaPipe/OpenCV；该路径已在当前开发环境验证，但尚未在独立干净机器完成端到端复测。
+
 ## 硬件基线
 
 | 档位 | 建议基线 | 目标 | 验证状态 |
