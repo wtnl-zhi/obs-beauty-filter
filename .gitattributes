@@ -1,0 +1,2 @@
+# Unified diff format uses a single space to represent an empty context line.
+third_party/patches/*.patch whitespace=-trailing-space
