@@ -6,7 +6,7 @@
 
 P0 已实现：可加载的 OBS 视频滤镜、中文配置界面、跨图形后端的 Shader 磨皮/提亮/红润/锐化链路，以及自动、兼容、高质量三个质量模式。
 
-P1 已完成 MediaPipe Face Landmarker 的原生运行时、模型加载、视频帧推理适配层、关键点转换、有界后台推理工作器、OBS 纹理帧桥和 GPU 局部美颜 mask；Apple Silicon 的 CPU/XNNPACK 路径已通过真实模型推理及工作器测试。帧桥使用双 staging surface，工作器只保留最新帧，渲染端不会等待 GPU 读回或模型推理。局部 mask 使用脸部椭圆轮廓并保护眼睛、嘴部，超过 500ms 未更新的轨迹自动失效；它不是像素级皮肤分割。质量模式会调整采样档：自动为 256px/10fps、兼容为 192px/6fps、高质量为 384px/15fps。现已提供可调的 mask 羽化与诊断预览；下一步是 OBS 实机场景验证、遮挡处理和边缘调校。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
+P1 已完成 MediaPipe Face Landmarker 的原生运行时、模型加载、视频帧推理适配层、关键点转换、有界后台推理工作器、OBS 纹理帧桥和 GPU 局部美颜 mask；Apple Silicon 的 CPU/XNNPACK 路径已通过真实模型推理及工作器测试，并已在隔离插件路径下通过 OBS 31.0.2 的启动/卸载 smoke test。帧桥使用双 staging surface，工作器只保留最新帧，渲染端不会等待 GPU 读回或模型推理。局部 mask 使用脸部椭圆轮廓并保护眼睛、嘴部，超过 500ms 未更新的轨迹自动失效；它不是像素级皮肤分割。质量模式会调整采样档：自动为 256px/10fps、兼容为 192px/6fps、高质量为 384px/15fps。现已提供可调的 mask 羽化与诊断预览；下一步是含滤镜实例的 OBS 场景验证、遮挡处理和边缘调校。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
 
 ## 支持范围
 

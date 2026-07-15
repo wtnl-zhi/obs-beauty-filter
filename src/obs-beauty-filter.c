@@ -465,7 +465,12 @@ MODULE_EXPORT const char *obs_module_description(void)
 bool obs_module_load(void)
 {
 	obs_register_source(&beauty_filter_info);
+
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	blog(LOG_INFO, "[obs-beauty-filter] P1 MediaPipe video filter loaded");
+#else
 	blog(LOG_INFO, "[obs-beauty-filter] P0 shader filter loaded");
+#endif
 	return true;
 }
 
