@@ -14,6 +14,8 @@ uniform float sharpness;
 uniform float texture_width;
 uniform float texture_height;
 uniform float face_mask_enabled;
+uniform float mask_feather;
+uniform float show_mask;
 uniform float4 face0;
 uniform float4 face1;
 uniform float4 face2;
@@ -79,14 +81,16 @@ float ellipse_mask(float2 uv, float4 face)
 	float valid = step(0.0001, face.z * face.w);
 	float2 radius = max(face.zw, float2(0.0001, 0.0001));
 	float distance_from_face = length((uv - face.xy) / radius);
-	return valid * (1.0 - smoothstep(0.84, 1.06, distance_from_face));
+	float feather = clamp(mask_feather, 0.01, 0.30);
+	return valid * (1.0 - smoothstep(1.0 - feather, 1.0 + feather, distance_from_face));
 }
 
 float protected_feature(float2 uv, float2 center, float2 radius)
 {
 	float2 safe_radius = max(radius, float2(0.0001, 0.0001));
 	float distance_from_feature = length((uv - center) / safe_radius);
-	return 1.0 - smoothstep(0.75, 1.20, distance_from_feature);
+	float feather = clamp(mask_feather, 0.01, 0.30);
+	return 1.0 - smoothstep(0.95 - feather, 0.95 + feather, distance_from_feature);
 }
 
 float face_mask_for(float2 uv, float4 face, float4 eyes, float4 mouth)
@@ -113,8 +117,11 @@ float4 PSBeauty(VertData vert_in) : TARGET
 	float3 unpremultiplied = source.rgb * ((source.a > 0.0) ? (1.0 / source.a) : 0.0);
 	float2 pixel = float2(1.0 / texture_width, 1.0 / texture_height) * (1.0 + smoothing * 2.0);
 	float3 blurred = cross_blur(vert_in.uv, pixel);
+	float tracked_face_mask = face_mask(vert_in.uv);
 	float mask = skin_probability(unpremultiplied);
-	mask *= lerp(1.0, face_mask(vert_in.uv), saturate(face_mask_enabled));
+	mask *= lerp(1.0, tracked_face_mask, saturate(face_mask_enabled));
+	if (show_mask > 0.5 && face_mask_enabled > 0.5)
+		return float4(tracked_face_mask, 0.0, 1.0 - tracked_face_mask, source.a);
 
 	float3 result = lerp(unpremultiplied, blurred, saturate(smoothing * mask));
 	float3 preserved_detail = unpremultiplied - blurred;

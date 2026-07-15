@@ -30,6 +30,8 @@ struct beauty_filter {
 	gs_eparam_t *texture_height_param;
 	gs_eparam_t *image_param;
 	gs_eparam_t *face_mask_enabled_param;
+	gs_eparam_t *mask_feather_param;
+	gs_eparam_t *show_mask_param;
 	gs_eparam_t *face_params[BEAUTY_MAX_FACES];
 	gs_eparam_t *eyes_params[BEAUTY_MAX_FACES];
 	gs_eparam_t *mouth_params[BEAUTY_MAX_FACES];
@@ -40,6 +42,8 @@ struct beauty_filter {
 	float brighten;
 	float rosy;
 	float sharpness;
+	float mask_feather;
+	bool show_mask;
 	float quality_scale;
 
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
@@ -83,6 +87,8 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 		filter->brighten = (float)obs_data_get_double(settings, "brighten") / 100.0f;
 		filter->rosy = (float)obs_data_get_double(settings, "rosy") / 100.0f;
 		filter->sharpness = (float)obs_data_get_double(settings, "sharpness") / 100.0f;
+		filter->mask_feather = (float)obs_data_get_double(settings, "mask_feather") / 100.0f;
+		filter->show_mask = obs_data_get_bool(settings, "show_mask");
 	}
 
 	/* P0 uses this only to select the shader sample radius. */
@@ -179,6 +185,8 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		filter->image_param = gs_effect_get_param_by_name(filter->effect, "image");
 		filter->face_mask_enabled_param =
 			gs_effect_get_param_by_name(filter->effect, "face_mask_enabled");
+		filter->mask_feather_param = gs_effect_get_param_by_name(filter->effect, "mask_feather");
+		filter->show_mask_param = gs_effect_get_param_by_name(filter->effect, "show_mask");
 		for (size_t index = 0; index < BEAUTY_MAX_FACES; ++index) {
 			char parameter_name[16] = {0};
 			snprintf(parameter_name, sizeof(parameter_name), "face%zu", index);
@@ -221,6 +229,12 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 static void beauty_filter_set_face_mask_disabled(struct beauty_filter *filter)
 {
 	gs_effect_set_float(filter->face_mask_enabled_param, 0.0f);
+}
+
+static void beauty_filter_set_mask_controls(struct beauty_filter *filter)
+{
+	gs_effect_set_float(filter->mask_feather_param, filter->mask_feather);
+	gs_effect_set_float(filter->show_mask_param, filter->show_mask ? 1.0f : 0.0f);
 }
 
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
@@ -327,6 +341,7 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 		const uint64_t now_ns = os_gettime_ns();
 		beauty_frame_bridge_tick(filter->frame_bridge, input, now_ns);
 		beauty_filter_set_face_mask(filter, now_ns);
+		beauty_filter_set_mask_controls(filter);
 		const bool previous_linear = gs_set_linear_srgb(true);
 		const bool previous_framebuffer_srgb = gs_framebuffer_srgb_enabled();
 		gs_enable_framebuffer_srgb(gs_get_linear_srgb());
@@ -354,6 +369,7 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 
 	gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
 	beauty_filter_set_face_mask_disabled(filter);
+	beauty_filter_set_mask_controls(filter);
 	gs_effect_set_float(filter->detail_param, filter->detail);
 	gs_effect_set_float(filter->brighten_param, filter->brighten);
 	gs_effect_set_float(filter->rosy_param, filter->rosy);
@@ -402,6 +418,9 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	manual = obs_properties_add_float_slider(props, "sharpness", obs_module_text("Filter.Sharpness"),
 						    0.0, 100.0, 1.0);
 	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	obs_properties_add_float_slider(props, "mask_feather", obs_module_text("Filter.MaskFeather"),
+						0.0, 30.0, 1.0);
+	obs_properties_add_bool(props, "show_mask", obs_module_text("Filter.ShowMask"));
 	return props;
 }
 
@@ -416,6 +435,8 @@ static void beauty_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_double(settings, "brighten", 15.0);
 	obs_data_set_default_double(settings, "rosy", 10.0);
 	obs_data_set_default_double(settings, "sharpness", 10.0);
+	obs_data_set_default_double(settings, "mask_feather", 12.0);
+	obs_data_set_default_bool(settings, "show_mask", false);
 }
 
 static struct obs_source_info beauty_filter_info = {
