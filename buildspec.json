@@ -1,0 +1,11 @@
+{
+  "name": "obs-beauty-filter",
+  "displayName": "OBS 高级美颜",
+  "version": "0.1.0",
+  "license": "GPL-2.0-or-later",
+  "minimumObsVersion": "31.0.0",
+  "platforms": {
+    "windows": ["x64"],
+    "macos": ["arm64"]
+  }
+}

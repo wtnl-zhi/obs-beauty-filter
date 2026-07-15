@@ -1,0 +1,89 @@
+/*
+ * P0 shader: a deliberately conservative skin-tone heuristic plus a small
+ * cross blur. P1 replaces skin_probability with an async model-produced mask.
+ */
+
+uniform float4x4 ViewProj;
+uniform texture2d image;
+
+uniform float smoothing;
+uniform float detail;
+uniform float brighten;
+uniform float rosy;
+uniform float sharpness;
+uniform float texture_width;
+uniform float texture_height;
+
+sampler_state linear_sampler {
+	Filter = Linear;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
+struct VertData {
+	float4 pos : POSITION;
+	float2 uv : TEXCOORD0;
+};
+
+VertData VSDefault(VertData vert_in)
+{
+	VertData vert_out;
+	vert_out.pos = mul(float4(vert_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv = vert_in.uv;
+	return vert_out;
+}
+
+float skin_probability(float3 color)
+{
+	float maximum = max(color.r, max(color.g, color.b));
+	float minimum = min(color.r, min(color.g, color.b));
+	float chroma = maximum - minimum;
+	float light = smoothstep(0.08, 0.95, maximum);
+	float warm = smoothstep(0.015, 0.30, color.r - color.b);
+	float red_dominant = smoothstep(-0.03, 0.25, color.r - color.g);
+	float saturated = smoothstep(0.035, 0.45, chroma);
+	return saturate(light * warm * red_dominant * saturated);
+}
+
+float3 sample_unpremultiplied(float2 uv)
+{
+	float4 color = image.Sample(linear_sampler, uv);
+	return color.rgb * ((color.a > 0.0) ? (1.0 / color.a) : 0.0);
+}
+
+float3 cross_blur(float2 uv, float2 pixel)
+{
+	float3 center = sample_unpremultiplied(uv) * 0.40;
+	float3 horizontal = sample_unpremultiplied(uv + float2(pixel.x, 0.0));
+	horizontal += sample_unpremultiplied(uv - float2(pixel.x, 0.0));
+	float3 vertical = sample_unpremultiplied(uv + float2(0.0, pixel.y));
+	vertical += sample_unpremultiplied(uv - float2(0.0, pixel.y));
+	return center + (horizontal + vertical) * 0.15;
+}
+
+float4 PSBeauty(VertData vert_in) : TARGET
+{
+	float4 source = image.Sample(linear_sampler, vert_in.uv);
+	float3 unpremultiplied = source.rgb * ((source.a > 0.0) ? (1.0 / source.a) : 0.0);
+	float2 pixel = float2(1.0 / texture_width, 1.0 / texture_height) * (1.0 + smoothing * 2.0);
+	float3 blurred = cross_blur(vert_in.uv, pixel);
+	float mask = skin_probability(unpremultiplied);
+
+	float3 result = lerp(unpremultiplied, blurred, saturate(smoothing * mask));
+	float3 preserved_detail = unpremultiplied - blurred;
+	result += preserved_detail * detail * 0.35 * mask;
+	result = lerp(result, sqrt(saturate(result)), brighten * mask * 0.35);
+	result += float3(0.030, -0.006, -0.015) * rosy * mask;
+	result += preserved_detail * sharpness * 0.25;
+
+	return float4(saturate(result) * source.a, source.a);
+}
+
+technique Draw
+{
+	pass
+	{
+		vertex_shader = VSDefault(vert_in);
+		pixel_shader = PSBeauty(vert_in);
+	}
+}
