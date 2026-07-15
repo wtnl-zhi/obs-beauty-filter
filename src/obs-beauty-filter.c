@@ -237,6 +237,8 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		blog(LOG_WARNING, "[obs-beauty-filter] face inference disabled: %s", error);
 		obs_data_set_string(settings, "runtime_status",
 				    obs_module_text("Status.ModelUnavailable"));
+		obs_data_set_string(settings, "performance_status",
+				    obs_module_text("Status.CompatiblePerformance"));
 	} else {
 		obs_data_set_string(settings, "runtime_status", obs_module_text("Status.MediaPipe"));
 		filter->frame_bridge = beauty_frame_bridge_create(filter->inference_worker, 256,
@@ -245,10 +247,13 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 			blog(LOG_WARNING, "[obs-beauty-filter] face frame bridge unavailable");
 			obs_data_set_string(settings, "runtime_status",
 					    obs_module_text("Status.ModelUnavailable"));
+			obs_data_set_string(settings, "performance_status",
+					    obs_module_text("Status.CompatiblePerformance"));
 		}
 	}
 #else
 	obs_data_set_string(settings, "runtime_status", obs_module_text("Status.Compatible"));
+	obs_data_set_string(settings, "performance_status", obs_module_text("Status.CompatiblePerformance"));
 #endif
 
 	beauty_filter_update(filter, settings);
