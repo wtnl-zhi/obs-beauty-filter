@@ -35,6 +35,21 @@ int main(void)
 	assert(fabsf(observation.left_eye_x - 0.375f) < 0.0001f);
 	assert(fabsf(observation.mouth_x - 0.50f) < 0.0001f);
 
+	memset(landmarks, 0, sizeof(landmarks));
+	set_landmark(landmarks, 10, 0.70f, 0.30f);
+	set_landmark(landmarks, 152, 0.30f, 0.70f);
+	set_landmark(landmarks, 234, 0.30f, 0.30f);
+	set_landmark(landmarks, 454, 0.70f, 0.70f);
+	set_landmark(landmarks, 33, 0.35f, 0.40f);
+	set_landmark(landmarks, 133, 0.42f, 0.47f);
+	set_landmark(landmarks, 263, 0.58f, 0.53f);
+	set_landmark(landmarks, 362, 0.65f, 0.60f);
+	set_landmark(landmarks, 78, 0.42f, 0.62f);
+	set_landmark(landmarks, 308, 0.58f, 0.78f);
+	assert(beauty_face_observation_from_mediapipe(landmarks, 478, 0.9f, &observation));
+	assert(fabsf(observation.radius_x - 0.3224407f) < 0.0001f);
+	assert(fabsf(observation.radius_y - 0.3111270f) < 0.0001f);
+
 	assert(!beauty_face_observation_from_mediapipe(landmarks, 454, 0.9f, &observation));
 	assert(!beauty_face_observation_from_mediapipe(landmarks, 478, 0.0f, &observation));
 

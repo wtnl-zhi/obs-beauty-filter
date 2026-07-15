@@ -26,6 +26,14 @@ static float midpoint(float first, float second)
 	return (first + second) * 0.5f;
 }
 
+static float landmark_distance(const struct beauty_landmark *first,
+			       const struct beauty_landmark *second)
+{
+	const float x = second->x - first->x;
+	const float y = second->y - first->y;
+	return sqrtf(x * x + y * y);
+}
+
 static bool valid_coordinate(float value)
 {
 	return isfinite(value) && value >= 0.0f && value <= 1.0f;
@@ -62,8 +70,8 @@ bool beauty_face_observation_from_mediapipe(const struct beauty_landmark *landma
 	    !valid_landmark(mouth_right))
 		return false;
 
-	const float face_width = fabsf(right_face->x - left_face->x);
-	const float face_height = fabsf(chin->y - forehead->y);
+	const float face_width = landmark_distance(left_face, right_face);
+	const float face_height = landmark_distance(forehead, chin);
 	if (face_width < 0.02f || face_height < 0.02f)
 		return false;
 

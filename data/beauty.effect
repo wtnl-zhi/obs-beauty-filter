@@ -76,30 +76,44 @@ float3 cross_blur(float2 uv, float2 pixel)
 	return center + (horizontal + vertical) * 0.15;
 }
 
-float ellipse_mask(float2 uv, float4 face)
+float2 face_axis(float4 eyes)
+{
+	float2 eye_line = eyes.zw - eyes.xy;
+	float eye_length = length(eye_line);
+	float2 rotated_axis = eye_line / max(eye_length, 0.0001);
+	return lerp(float2(1.0, 0.0), rotated_axis, step(0.0001, eye_length));
+}
+
+float2 rotate_into_face_space(float2 value, float2 axis)
+{
+	return float2(dot(value, axis), dot(value, float2(-axis.y, axis.x)));
+}
+
+float ellipse_mask(float2 uv, float4 face, float2 axis)
 {
 	float valid = step(0.0001, face.z * face.w);
 	float2 radius = max(face.zw, float2(0.0001, 0.0001));
-	float distance_from_face = length((uv - face.xy) / radius);
+	float distance_from_face = length(rotate_into_face_space(uv - face.xy, axis) / radius);
 	float feather = clamp(mask_feather, 0.01, 0.30);
 	return valid * (1.0 - smoothstep(1.0 - feather, 1.0 + feather, distance_from_face));
 }
 
-float protected_feature(float2 uv, float2 center, float2 radius)
+float protected_feature(float2 uv, float2 center, float2 radius, float2 axis)
 {
 	float2 safe_radius = max(radius, float2(0.0001, 0.0001));
-	float distance_from_feature = length((uv - center) / safe_radius);
+	float distance_from_feature = length(rotate_into_face_space(uv - center, axis) / safe_radius);
 	float feather = clamp(mask_feather, 0.01, 0.30);
 	return 1.0 - smoothstep(0.95 - feather, 0.95 + feather, distance_from_feature);
 }
 
 float face_mask_for(float2 uv, float4 face, float4 eyes, float4 mouth)
 {
-	float face_region = ellipse_mask(uv, face);
+	float2 axis = face_axis(eyes);
+	float face_region = ellipse_mask(uv, face, axis);
 	float2 eye_radius = float2(face.z * 0.19, face.w * 0.12);
-	float protect_eyes = max(protected_feature(uv, eyes.xy, eye_radius),
-				protected_feature(uv, eyes.zw, eye_radius));
-	float protect_mouth = protected_feature(uv, mouth.xy, mouth.zw);
+	float protect_eyes = max(protected_feature(uv, eyes.xy, eye_radius, axis),
+				protected_feature(uv, eyes.zw, eye_radius, axis));
+	float protect_mouth = protected_feature(uv, mouth.xy, mouth.zw, axis);
 	return face_region * (1.0 - saturate(max(protect_eyes, protect_mouth)));
 }
 
