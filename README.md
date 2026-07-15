@@ -2,6 +2,8 @@
 
 一个面向 OBS Studio 31+ 的开源本地实时美颜视频滤镜。支持 Windows x64 与 Apple Silicon Mac（arm64）；首版仅提供中文界面。
 
+构建系统会拒绝 Intel Mac、Linux 和 Windows 非 x64 配置，避免产生超出支持范围的安装包。
+
 ## 当前状态
 
 P0 已实现：可加载的 OBS 视频滤镜、中文配置界面、跨图形后端的 Shader 磨皮/提亮/红润/锐化链路，以及自动、兼容、高质量三个质量模式。

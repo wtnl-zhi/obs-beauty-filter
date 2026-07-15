@@ -4,6 +4,18 @@ project(obs-beauty-filter VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 
+if(APPLE)
+  if(NOT CMAKE_OSX_ARCHITECTURES STREQUAL "arm64")
+    message(FATAL_ERROR "obs-beauty-filter supports Apple Silicon arm64 only; configure with CMAKE_OSX_ARCHITECTURES=arm64")
+  endif()
+elseif(WIN32)
+  if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+    message(FATAL_ERROR "obs-beauty-filter supports Windows x64 only")
+  endif()
+else()
+  message(FATAL_ERROR "obs-beauty-filter supports Windows x64 and Apple Silicon macOS only")
+endif()
+
 set(OBS_SOURCE_DIR "" CACHE PATH "Path to an OBS Studio source tree matching the target OBS version")
 set(OBS_LIBRARY "" CACHE FILEPATH "Path to the libobs library or framework binary")
 option(OBS_BEAUTY_ENABLE_MEDIAPIPE "Build with the MediaPipe Face Landmarker runtime" OFF)
@@ -75,10 +87,12 @@ if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
     Threads::Threads
   )
   target_compile_features(obs-beauty-filter PRIVATE cxx_std_20)
-  set_target_properties(obs-beauty-filter PROPERTIES
-    BUILD_WITH_INSTALL_RPATH TRUE
-    INSTALL_RPATH "@loader_path/../Frameworks;/Applications/OBS.app/Contents/Frameworks"
-  )
+  if(APPLE)
+    set_target_properties(obs-beauty-filter PROPERTIES
+      BUILD_WITH_INSTALL_RPATH TRUE
+      INSTALL_RPATH "@loader_path/../Frameworks;/Applications/OBS.app/Contents/Frameworks"
+    )
+  endif()
 endif()
 
 if(MSVC)
