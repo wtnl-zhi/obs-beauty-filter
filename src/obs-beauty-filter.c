@@ -231,7 +231,7 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 	char *model_path = obs_module_file("face_landmarker.task");
 	char error[512] = {0};
 	filter->inference_worker = beauty_face_inference_worker_create(
-		model_path, BEAUTY_MAX_FACES, 0.35f, UINT64_C(500000000), error, sizeof(error));
+		model_path, BEAUTY_MAX_DETECTED_FACES, 0.35f, UINT64_C(500000000), error, sizeof(error));
 	bfree(model_path);
 	if (!filter->inference_worker) {
 		blog(LOG_WARNING, "[obs-beauty-filter] face inference disabled: %s", error);

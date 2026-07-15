@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 #define BEAUTY_MAX_FACES 4
+#define BEAUTY_MAX_DETECTED_FACES 8
 
 /*
  * All coordinates are normalized to the input frame (0.0–1.0). The MediaPipe

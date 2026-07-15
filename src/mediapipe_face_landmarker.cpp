@@ -49,7 +49,7 @@ extern "C" struct beauty_face_inference *beauty_mediapipe_face_inference_create(
 	const char *model_path, size_t max_faces, char *error, size_t error_size)
 {
 	clear_error(error, error_size);
-	if (!model_path || !model_path[0] || max_faces == 0 || max_faces > BEAUTY_MAX_FACES) {
+	if (!model_path || !model_path[0] || max_faces == 0 || max_faces > BEAUTY_MAX_DETECTED_FACES) {
 		set_error(error, error_size, "人脸模型路径或最大人脸数无效");
 		return nullptr;
 	}
@@ -125,9 +125,11 @@ extern "C" enum beauty_face_inference_status beauty_face_inference_detect(
 	}
 
 	const size_t face_count = std::min(static_cast<size_t>(result.face_landmarks_count),
-					   std::min(observation_capacity, inference->max_faces));
+					   inference->max_faces);
 	std::vector<beauty_landmark> landmarks;
+	std::vector<beauty_face_observation> candidates;
 	landmarks.reserve(478);
+	candidates.reserve(face_count);
 	for (size_t face_index = 0; face_index < face_count; ++face_index) {
 		const NormalizedLandmarks &face = result.face_landmarks[face_index];
 		landmarks.clear();
@@ -136,10 +138,17 @@ extern "C" enum beauty_face_inference_status beauty_face_inference_detect(
 			const NormalizedLandmark &landmark = face.landmarks[landmark_index];
 			landmarks.push_back({landmark.x, landmark.y, landmark.z});
 		}
+		beauty_face_observation observation = {};
 		if (beauty_face_observation_from_mediapipe(landmarks.data(), landmarks.size(), 1.0f,
-						   &observations[*observation_count]))
-			++*observation_count;
+						   &observation))
+			candidates.push_back(observation);
 	}
+	std::sort(candidates.begin(), candidates.end(), [](const beauty_face_observation &left,
+							   const beauty_face_observation &right) {
+		return left.radius_x * left.radius_y > right.radius_x * right.radius_y;
+	});
+	*observation_count = std::min(observation_capacity, candidates.size());
+	std::copy_n(candidates.begin(), *observation_count, observations);
 	MpFaceLandmarkerCloseResult(&result);
 	inference->last_timestamp_ms = frame->timestamp_ms;
 	inference->has_timestamp = true;
