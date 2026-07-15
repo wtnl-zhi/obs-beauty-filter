@@ -42,6 +42,20 @@ int main(void)
 	beauty_face_tracker_update(&tracker, people, 2, 300000000ULL);
 	assert(beauty_face_tracker_active_count(&tracker) == 2);
 
+	struct beauty_face_observation candidates[] = {
+		observation(0.1f, 0.1f, 1.0f), observation(0.2f, 0.2f, 1.0f),
+		observation(0.3f, 0.3f, 1.0f), observation(0.4f, 0.4f, 1.0f),
+		observation(0.5f, 0.5f, 1.0f),
+	};
+	candidates[0].radius_x = candidates[0].radius_y = 0.05f;
+	candidates[1].radius_x = candidates[1].radius_y = 0.10f;
+	candidates[2].radius_x = candidates[2].radius_y = 0.20f;
+	candidates[3].radius_x = candidates[3].radius_y = 0.15f;
+	candidates[4].radius_x = candidates[4].radius_y = 0.30f;
+	struct beauty_face_observation selected[BEAUTY_MAX_FACES] = {0};
+	assert(beauty_face_select_largest(candidates, 5, selected, BEAUTY_MAX_FACES) == 4);
+	assert(selected[0].center_x == 0.5f && selected[3].center_x == 0.2f);
+
 	beauty_face_tracker_update(&tracker, NULL, 0, 900000001ULL);
 	assert(beauty_face_tracker_active_count(&tracker) == 0);
 

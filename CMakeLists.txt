@@ -122,6 +122,7 @@ if(BUILD_TESTING)
       tests/mediapipe_face_inference_test.cpp
       src/mediapipe_face_landmarker.cpp
       src/face_landmarks.c
+      src/face_tracker.c
     )
     target_include_directories(face-inference-test PRIVATE
       "${CMAKE_CURRENT_SOURCE_DIR}/src"

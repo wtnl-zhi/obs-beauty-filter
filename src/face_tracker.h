@@ -59,6 +59,11 @@ void beauty_face_tracker_update(struct beauty_face_tracker *tracker,
 				const struct beauty_face_observation *observations, size_t count,
 				uint64_t now_ns);
 
+/* Copies the largest valid faces, ordered by descending ellipse area. */
+size_t beauty_face_select_largest(const struct beauty_face_observation *candidates,
+				  size_t candidate_count, struct beauty_face_observation *selected,
+				  size_t selected_capacity);
+
 size_t beauty_face_tracker_active_count(const struct beauty_face_tracker *tracker);
 
 #ifdef __cplusplus

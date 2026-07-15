@@ -18,6 +18,33 @@ static bool observation_is_valid(const struct beauty_face_observation *observati
 	       observation->confidence > 0.0f;
 }
 
+size_t beauty_face_select_largest(const struct beauty_face_observation *candidates,
+				  size_t candidate_count, struct beauty_face_observation *selected,
+				  size_t selected_capacity)
+{
+	if (!candidates || !selected || !selected_capacity)
+		return 0;
+	size_t selected_count = 0;
+	for (size_t candidate_index = 0; candidate_index < candidate_count; ++candidate_index) {
+		const struct beauty_face_observation *candidate = &candidates[candidate_index];
+		if (!observation_is_valid(candidate))
+			continue;
+		size_t insert_at = selected_count;
+		const float area = candidate->radius_x * candidate->radius_y;
+		while (insert_at && area > selected[insert_at - 1].radius_x * selected[insert_at - 1].radius_y)
+			--insert_at;
+		if (insert_at >= selected_capacity)
+			continue;
+		const size_t move_count = selected_count < selected_capacity ? selected_count : selected_capacity - 1;
+		for (size_t index = move_count; index > insert_at; --index)
+			selected[index] = selected[index - 1];
+		selected[insert_at] = *candidate;
+		if (selected_count < selected_capacity)
+			++selected_count;
+	}
+	return selected_count;
+}
+
 static float squared_distance(const struct beauty_face_observation *left,
 			      const struct beauty_face_observation *right)
 {

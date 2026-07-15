@@ -143,12 +143,8 @@ extern "C" enum beauty_face_inference_status beauty_face_inference_detect(
 						   &observation))
 			candidates.push_back(observation);
 	}
-	std::sort(candidates.begin(), candidates.end(), [](const beauty_face_observation &left,
-							   const beauty_face_observation &right) {
-		return left.radius_x * left.radius_y > right.radius_x * right.radius_y;
-	});
-	*observation_count = std::min(observation_capacity, candidates.size());
-	std::copy_n(candidates.begin(), *observation_count, observations);
+	*observation_count = beauty_face_select_largest(candidates.data(), candidates.size(),
+								 observations, observation_capacity);
 	MpFaceLandmarkerCloseResult(&result);
 	inference->last_timestamp_ms = frame->timestamp_ms;
 	inference->has_timestamp = true;
