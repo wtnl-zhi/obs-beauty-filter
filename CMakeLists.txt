@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(obs-beauty-filter VERSION 0.1.0 LANGUAGES C)
+project(obs-beauty-filter VERSION 0.1.0 LANGUAGES C CXX)
 
 include(CTest)
 
 set(OBS_SOURCE_DIR "" CACHE PATH "Path to an OBS Studio source tree matching the target OBS version")
 set(OBS_LIBRARY "" CACHE FILEPATH "Path to the libobs library or framework binary")
+option(OBS_BEAUTY_ENABLE_MEDIAPIPE "Build with the MediaPipe Face Landmarker runtime" OFF)
+set(MEDIAPIPE_ROOT "" CACHE PATH "Path to the pinned MediaPipe source tree")
+set(MEDIAPIPE_FACE_LANDMARKER_LIBRARY "" CACHE FILEPATH
+  "Path to the MediaPipe Face Landmarker shared library")
+set(MEDIAPIPE_RUNTIME_LIBRARIES "" CACHE STRING
+  "Semicolon-separated runtime libraries required by MediaPipe (for example OpenCV)")
 
 if(NOT EXISTS "${OBS_SOURCE_DIR}/libobs/obs-module.h")
   message(FATAL_ERROR "Set OBS_SOURCE_DIR to an OBS Studio source tree containing libobs/obs-module.h")
@@ -19,11 +25,45 @@ if(NOT OBS_LIBRARY)
   endif()
 endif()
 
-add_library(obs-beauty-filter MODULE src/obs-beauty-filter.c src/face_tracker.c)
+set(OBS_BEAUTY_SOURCES
+  src/obs-beauty-filter.c
+  src/face_tracker.c
+  src/face_landmarks.c
+)
+
+if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+  if(NOT EXISTS "${MEDIAPIPE_ROOT}/mediapipe/tasks/c/vision/face_landmarker/face_landmarker.h")
+    message(FATAL_ERROR "Set MEDIAPIPE_ROOT to the pinned MediaPipe source tree")
+  endif()
+  if(NOT EXISTS "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}")
+    message(FATAL_ERROR "Set MEDIAPIPE_FACE_LANDMARKER_LIBRARY to the built Face Landmarker shared library")
+  endif()
+  if(NOT MEDIAPIPE_RUNTIME_LIBRARIES)
+    message(FATAL_ERROR "Set MEDIAPIPE_RUNTIME_LIBRARIES to every shared runtime library required by MediaPipe")
+  endif()
+  foreach(runtime_library IN LISTS MEDIAPIPE_RUNTIME_LIBRARIES)
+    if(NOT EXISTS "${runtime_library}")
+      message(FATAL_ERROR "MediaPipe runtime library does not exist: ${runtime_library}")
+    endif()
+  endforeach()
+  list(APPEND OBS_BEAUTY_SOURCES src/mediapipe_face_landmarker.cpp)
+endif()
+
+add_library(obs-beauty-filter MODULE ${OBS_BEAUTY_SOURCES})
 
 target_include_directories(obs-beauty-filter PRIVATE "${OBS_SOURCE_DIR}/libobs")
 target_link_libraries(obs-beauty-filter PRIVATE "${OBS_LIBRARY}")
 target_compile_features(obs-beauty-filter PRIVATE c_std_11)
+
+if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+  target_include_directories(obs-beauty-filter PRIVATE "${MEDIAPIPE_ROOT}")
+  target_link_libraries(obs-beauty-filter PRIVATE "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}")
+  target_compile_features(obs-beauty-filter PRIVATE cxx_std_20)
+  set_target_properties(obs-beauty-filter PROPERTIES
+    BUILD_WITH_INSTALL_RPATH TRUE
+    INSTALL_RPATH "@loader_path/../Frameworks;/Applications/OBS.app/Contents/Frameworks"
+  )
+endif()
 
 if(MSVC)
   target_compile_options(obs-beauty-filter PRIVATE /W4)
@@ -39,6 +79,35 @@ if(BUILD_TESTING)
     target_link_libraries(face-tracker-test PRIVATE m)
   endif()
   add_test(NAME face-tracker COMMAND face-tracker-test)
+
+  add_executable(face-landmarks-test tests/face_landmarks_test.c src/face_landmarks.c)
+  target_include_directories(face-landmarks-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  target_compile_features(face-landmarks-test PRIVATE c_std_11)
+  if(NOT MSVC)
+    target_link_libraries(face-landmarks-test PRIVATE m)
+  endif()
+  add_test(NAME face-landmarks COMMAND face-landmarks-test)
+
+  if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+    add_executable(face-inference-test
+      tests/mediapipe_face_inference_test.cpp
+      src/mediapipe_face_landmarker.cpp
+      src/face_landmarks.c
+    )
+    target_include_directories(face-inference-test PRIVATE
+      "${CMAKE_CURRENT_SOURCE_DIR}/src"
+      "${MEDIAPIPE_ROOT}"
+    )
+    target_link_libraries(face-inference-test PRIVATE "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}")
+    target_link_libraries(face-inference-test PRIVATE ${MEDIAPIPE_RUNTIME_LIBRARIES})
+    target_compile_features(face-inference-test PRIVATE cxx_std_20)
+    add_test(NAME face-inference
+      COMMAND face-inference-test "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task")
+    # The Xcode generator can omit a test-only executable from ALL_BUILD.
+    # Keep the inference smoke test in the default P1 build through an
+    # existing default target, so `ctest` never sees an absent executable.
+    add_dependencies(face-tracker-test face-inference-test)
+  endif()
 endif()
 
 set_target_properties(obs-beauty-filter PROPERTIES PREFIX "" OUTPUT_NAME "obs-beauty-filter")
@@ -65,6 +134,25 @@ if(APPLE)
       "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Resources/locale/zh-CN.ini"
   )
 
+  if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+    add_custom_command(TARGET obs-beauty-filter POST_BUILD
+      COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Frameworks"
+      COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
+        "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Frameworks/"
+      COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+        "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task"
+        "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Resources/face_landmarker.task"
+    )
+    foreach(runtime_library IN LISTS MEDIAPIPE_RUNTIME_LIBRARIES)
+      add_custom_command(TARGET obs-beauty-filter POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+          "${runtime_library}"
+          "$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Frameworks/"
+      )
+    endforeach()
+  endif()
+
   install(TARGETS obs-beauty-filter
     BUNDLE DESTINATION "."
     LIBRARY DESTINATION "."
@@ -88,4 +176,12 @@ else()
     DESTINATION "obs-beauty-filter/data/obs-plugins/obs-beauty-filter")
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/locale/zh-CN.ini"
     DESTINATION "obs-beauty-filter/data/obs-plugins/obs-beauty-filter/locale")
+  if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+    install(FILES "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
+      DESTINATION "obs-beauty-filter/bin/64bit")
+    install(FILES ${MEDIAPIPE_RUNTIME_LIBRARIES}
+      DESTINATION "obs-beauty-filter/bin/64bit")
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task"
+      DESTINATION "obs-beauty-filter/data/obs-plugins/obs-beauty-filter")
+  endif()
 endif()

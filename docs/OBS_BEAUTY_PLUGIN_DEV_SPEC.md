@@ -1,6 +1,6 @@
 # OBS 双端高阶美颜滤镜插件：开发说明（评审稿）
 
-> 实施状态（2026-07-15）：P0 已开始并完成 macOS arm64 本机构建验证。P0 包含 OBS 视频滤镜骨架、中文设置界面及纯 Shader 美颜链路；AI 人脸/皮肤 mask 仍属于 P1，尚未接入。
+> 实施状态（2026-07-15）：P0 已完成 macOS arm64 本机构建验证。P1 已完成 MediaPipe Face Landmarker 的 Apple Silicon 原生运行时、模型加载和关键点适配，并通过真实模型推理测试；OBS 异步帧桥与 GPU 人脸 mask 尚未接入。
 
 ## 1. 文档目的
 
@@ -98,13 +98,13 @@ OBS 输入视频帧
 | 平台 | 优先后端 | 后备后端 | 说明 |
 | --- | --- | --- | --- |
 | Windows | Windows ML / DirectML（实现评估后确定其一） | ONNX Runtime CPU | 根据可用硬件选择；GPU 仅用于推理加速。 |
-| macOS arm64 | Core ML | CPU | 使用 Apple Silicon 的 CPU、GPU、Neural Engine。 |
+| macOS arm64 | MediaPipe CPU / XNNPACK | 后续评估 Core ML | 当前已验证原生 CPU 路径；不在渲染线程调用。 |
 
 推理层应对上提供统一接口，业务和渲染层不得直接依赖 Direct3D、Metal 或某一家 GPU API。模型与运行时的许可证必须在接入前单独审查。
 
 #### P1 选型决定（2026-07-15）
 
-P1 优先接入 MediaPipe Face Landmarker：它以异步视频模式输出人脸关键点，插件据此生成脸部轮廓 mask，并扣除眼睛、眉毛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`；模型文件未审查完成前不得打包进发布产物。
+P1 优先接入 MediaPipe Face Landmarker：它以视频模式输出人脸关键点，插件据此生成脸部轮廓 mask，并扣除眼睛、眉毛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。当前 macOS arm64 已验证 CPU/XNNPACK 运行时与最小 OpenCV Core/Imgproc 依赖；具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`。
 
 ### 4.3 渲染算法（首版）
 

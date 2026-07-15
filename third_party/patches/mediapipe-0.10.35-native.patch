@@ -1,0 +1,103 @@
+diff --git a/WORKSPACE b/WORKSPACE
+index 1f57dd8..e91aabe 100644
+--- a/WORKSPACE
++++ b/WORKSPACE
+@@ -631,7 +631,7 @@ new_local_repository(
+     # For local MacOS builds, the path should point to an opencv@3 installation.
+     # If you edit the path here, you will also need to update the corresponding
+     # prefix in "opencv_macos.BUILD".
+-    path = "/usr/local",  # e.g. /usr/local/Cellar for HomeBrew
++    path = "__OBS_BEAUTY_OPENCV_PREFIX__",
+ )
+ 
+ new_local_repository(
+@@ -803,12 +803,12 @@ load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install
+ node_repositories(
+     node_version = "20.14.0",
+ )
+-
+-yarn_install(
+-    name = "npm",
+-    package_json = "@//:package.json",
+-    yarn_lock = "@//:yarn.lock",
+-)
++# Native-only build: do not download the unrelated Web/TypeScript dependency tree.
++# The replacement ts_project() below fails explicitly if a Web target is selected.
++# yarn_install(
++#     name = "npm",
++#     package_json = "@//:package.json",
++#     yarn_lock = "@//:yarn.lock",
++# )
+ 
+ # Protobuf for Node dependencies
+ http_archive(
+diff --git a/mediapipe/framework/port/build_config.bzl b/mediapipe/framework/port/build_config.bzl
+index 0b58cf7..9db5424 100644
+--- a/mediapipe/framework/port/build_config.bzl
++++ b/mediapipe/framework/port/build_config.bzl
+@@ -3,7 +3,6 @@
+ 
+ """.bzl file for mediapipe open source build configs."""
+ 
+-load("@npm//@bazel/typescript:index.bzl", "ts_project")
+ load(
+     "//mediapipe/framework/tool:mediapipe_proto.bzl",
+     _mediapipe_cc_proto_library = "mediapipe_cc_proto_library",
+@@ -11,6 +10,9 @@ load(
+ )
+ 
+ # TODO: enable def_rewrite once alias proto sources are generated.
++def ts_project(**kwargs):
++    fail("TypeScript targets are disabled for this native-only build")
++
+ def mediapipe_proto_library(def_rewrite = False, **kwargs):
+     _mediapipe_proto_library(def_rewrite = def_rewrite, **kwargs)
+diff --git a/mediapipe/tasks/c/vision/core/BUILD b/mediapipe/tasks/c/vision/core/BUILD
+index 41b120a..c729476 100644
+--- a/mediapipe/tasks/c/vision/core/BUILD
++++ b/mediapipe/tasks/c/vision/core/BUILD
+@@ -44,6 +44,7 @@ cc_library(
+     name = "image",
+     srcs = ["image.cc"],
+     hdrs = ["image.h"],
++    alwayslink = 1,
+     deps = IMAGE_DEPS,
+ )
+diff --git a/mediapipe/tasks/c/vision/face_landmarker/BUILD b/mediapipe/tasks/c/vision/face_landmarker/BUILD
+index 842703a..1e23e7f 100644
+--- a/mediapipe/tasks/c/vision/face_landmarker/BUILD
++++ b/mediapipe/tasks/c/vision/face_landmarker/BUILD
+@@ -151,7 +151,10 @@ cc_binary(
+         "nobuilder",
+         "notap",
+     ],
+-    deps = [":face_landmarker_lib"],
++    deps = [
++        ":face_landmarker_c_lib",
++        "//mediapipe/tasks/c/vision/core:image_c_lib",
++    ],
+ )
+ 
+ # bazel build --config darwin_arm64 -c opt --strip always --define MEDIAPIPE_DISABLE_GPU=1 \
+@@ -168,5 +171,8 @@ cc_binary(
+         "nobuilder",
+         "notap",
+     ],
+-    deps = [":face_landmarker_lib"],
++    deps = [
++        ":face_landmarker_c_lib",
++        "//mediapipe/tasks/c/vision/core:image_c_lib",
++    ],
+ )
+diff --git a/third_party/opencv_macos.BUILD b/third_party/opencv_macos.BUILD
+index 4139f18..3bf99e2 100644
+--- a/third_party/opencv_macos.BUILD
++++ b/third_party/opencv_macos.BUILD
+@@ -35,7 +35,7 @@ exports_files(["LICENSE"])
+ # "include/opencv4/opencv2/**/*.h*" and the include prefix needs to be set to
+ # "include/opencv4".
+ 
+-PREFIX = "opt/opencv@3"
++PREFIX = ""
+ 
+ cc_library(

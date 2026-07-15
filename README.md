@@ -6,7 +6,7 @@
 
 P0 已实现：可加载的 OBS 视频滤镜、中文配置界面、跨图形后端的 Shader 磨皮/提亮/红润/锐化链路，以及自动、兼容、高质量三个质量模式。
 
-P1 将接入 MediaPipe Face Landmarker 的异步关键点结果，生成脸部 mask 并保护眼睛、眉毛、嘴唇区域。当前 P0 的皮肤区域仅使用保守的像素颜色启发式，因此不应将其视为高阶 AI 美颜的最终效果。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
+P1 已完成 MediaPipe Face Landmarker 的原生运行时、模型加载、视频帧推理适配层和关键点转换；Apple Silicon 的 CPU/XNNPACK 路径已通过真实模型推理测试。下一步是将 OBS 纹理帧异步送入此适配层，并用结果生成 GPU 局部 mask。当前渲染仍使用保守的像素颜色启发式，因此不应将其视为高阶 AI 美颜的最终效果。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
 
 ## 支持范围
 
@@ -27,6 +27,15 @@ cmake --build --preset macos-arm64
 
 输出为 `build/macos-arm64/RelWithDebInfo/obs-beauty-filter.plugin`。将其复制到 `~/Library/Application Support/obs-studio/plugins/` 后重启 OBS，在摄像头源的“滤镜”中添加“高级美颜”。正式分发前必须使用 Apple Developer ID 签名并公证。
 
+要构建带 P1 人脸运行时的 bundle，先下载模型并生成 Apple Silicon 原生依赖：
+
+```sh
+scripts/fetch-models.zsh
+scripts/build-mediapipe-macos-arm64.zsh
+```
+
+再使用脚本输出的 `MEDIAPIPE_*` 参数配置 CMake。该构建会将 Face Landmarker、最小 OpenCV Core/Imgproc 运行时和模型一起打入 `.plugin`；目前只在 macOS arm64 实测通过。
+
 ## Windows 构建
 
 在 Windows 的 Visual Studio 2022 开发者终端中，提供目标 OBS 版本的源码目录与 `libobs` 库路径：
@@ -46,4 +55,4 @@ cmake --install build/windows-x64 --config RelWithDebInfo --prefix dist
 
 ## 许可证
 
-GPL-2.0-or-later。模型、模型权重和第三方运行时将在引入前单独完成许可证审查。
+GPL-2.0-or-later。MediaPipe、OpenCV 及模型的审查与固定版本见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
