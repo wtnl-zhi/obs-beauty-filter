@@ -9,6 +9,7 @@
 #include <util/platform.h>
 
 #include "face_tracker.h"
+#include "beauty_preset.h"
 
 #include <stdio.h>
 
@@ -56,14 +57,24 @@ static const char *beauty_filter_name(void *unused)
 static void beauty_filter_update(void *data, obs_data_t *settings)
 {
 	struct beauty_filter *filter = data;
+	struct beauty_preset_values preset_values = {0};
+	const int preset = (int)obs_data_get_int(settings, "preset");
 	const int quality_mode = (int)obs_data_get_int(settings, "quality_mode");
 
 	filter->enabled = obs_data_get_bool(settings, "enabled");
-	filter->smoothing = (float)obs_data_get_double(settings, "smoothing") / 100.0f;
-	filter->detail = (float)obs_data_get_double(settings, "detail") / 100.0f;
-	filter->brighten = (float)obs_data_get_double(settings, "brighten") / 100.0f;
-	filter->rosy = (float)obs_data_get_double(settings, "rosy") / 100.0f;
-	filter->sharpness = (float)obs_data_get_double(settings, "sharpness") / 100.0f;
+	if (beauty_preset_values_for(preset, &preset_values)) {
+		filter->smoothing = preset_values.smoothing / 100.0f;
+		filter->detail = preset_values.detail / 100.0f;
+		filter->brighten = preset_values.brighten / 100.0f;
+		filter->rosy = preset_values.rosy / 100.0f;
+		filter->sharpness = preset_values.sharpness / 100.0f;
+	} else {
+		filter->smoothing = (float)obs_data_get_double(settings, "smoothing") / 100.0f;
+		filter->detail = (float)obs_data_get_double(settings, "detail") / 100.0f;
+		filter->brighten = (float)obs_data_get_double(settings, "brighten") / 100.0f;
+		filter->rosy = (float)obs_data_get_double(settings, "rosy") / 100.0f;
+		filter->sharpness = (float)obs_data_get_double(settings, "sharpness") / 100.0f;
+	}
 
 	/* P0 uses this only to select the shader sample radius. */
 	switch (quality_mode) {
@@ -77,6 +88,35 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 		filter->quality_scale = 1.0f;
 		break;
 	}
+}
+
+static void beauty_filter_store_preset(obs_data_t *settings, const struct beauty_preset_values *values)
+{
+	obs_data_set_double(settings, "smoothing", values->smoothing);
+	obs_data_set_double(settings, "detail", values->detail);
+	obs_data_set_double(settings, "brighten", values->brighten);
+	obs_data_set_double(settings, "rosy", values->rosy);
+	obs_data_set_double(settings, "sharpness", values->sharpness);
+}
+
+static bool beauty_filter_preset_modified(obs_properties_t *props, obs_property_t *property,
+						   obs_data_t *settings)
+{
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
+	struct beauty_preset_values values = {0};
+	if (beauty_preset_values_for((int)obs_data_get_int(settings, "preset"), &values))
+		beauty_filter_store_preset(settings, &values);
+	return true;
+}
+
+static bool beauty_filter_manual_setting_modified(obs_properties_t *props, obs_property_t *property,
+							  obs_data_t *settings)
+{
+	UNUSED_PARAMETER(props);
+	UNUSED_PARAMETER(property);
+	obs_data_set_int(settings, "preset", BEAUTY_PRESET_CUSTOM);
+	return true;
 }
 
 static void beauty_filter_destroy(void *data)
@@ -316,28 +356,41 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	obs_property_t *quality = NULL;
 
 	obs_properties_add_bool(props, "enabled", obs_module_text("Filter.Enabled"));
+	obs_property_t *preset = obs_properties_add_list(props, "preset", obs_module_text("Filter.Preset"),
+								     OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_list_add_int(preset, obs_module_text("Preset.Natural"), BEAUTY_PRESET_NATURAL);
+	obs_property_list_add_int(preset, obs_module_text("Preset.Clear"), BEAUTY_PRESET_CLEAR);
+	obs_property_list_add_int(preset, obs_module_text("Preset.Live"), BEAUTY_PRESET_LIVE);
+	obs_property_list_add_int(preset, obs_module_text("Preset.Custom"), BEAUTY_PRESET_CUSTOM);
+	obs_property_set_modified_callback(preset, beauty_filter_preset_modified);
 	quality = obs_properties_add_list(props, "quality_mode", obs_module_text("Filter.Quality"),
 					  OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(quality, obs_module_text("Quality.Auto"), 0);
 	obs_property_list_add_int(quality, obs_module_text("Quality.Compatible"), 1);
 	obs_property_list_add_int(quality, obs_module_text("Quality.High"), 2);
 
-	obs_properties_add_float_slider(props, "smoothing", obs_module_text("Filter.Smoothing"), 0.0,
-						100.0, 1.0);
-	obs_properties_add_float_slider(props, "detail", obs_module_text("Filter.Detail"), 0.0, 100.0,
-						1.0);
-	obs_properties_add_float_slider(props, "brighten", obs_module_text("Filter.Brighten"), 0.0,
-						100.0, 1.0);
-	obs_properties_add_float_slider(props, "rosy", obs_module_text("Filter.Rosy"), 0.0, 100.0,
-						1.0);
-	obs_properties_add_float_slider(props, "sharpness", obs_module_text("Filter.Sharpness"), 0.0,
-						100.0, 1.0);
+	obs_property_t *manual = obs_properties_add_float_slider(
+		props, "smoothing", obs_module_text("Filter.Smoothing"), 0.0, 100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_float_slider(props, "detail", obs_module_text("Filter.Detail"), 0.0,
+						    100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_float_slider(props, "brighten", obs_module_text("Filter.Brighten"),
+						    0.0, 100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_float_slider(props, "rosy", obs_module_text("Filter.Rosy"), 0.0,
+						    100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
+	manual = obs_properties_add_float_slider(props, "sharpness", obs_module_text("Filter.Sharpness"),
+						    0.0, 100.0, 1.0);
+	obs_property_set_modified_callback(manual, beauty_filter_manual_setting_modified);
 	return props;
 }
 
 static void beauty_filter_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_bool(settings, "enabled", true);
+	obs_data_set_default_int(settings, "preset", BEAUTY_PRESET_NATURAL);
 	obs_data_set_default_int(settings, "quality_mode", 0);
 	obs_data_set_default_double(settings, "smoothing", 35.0);
 	obs_data_set_default_double(settings, "detail", 70.0);
