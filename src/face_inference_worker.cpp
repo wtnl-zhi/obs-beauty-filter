@@ -168,11 +168,13 @@ extern "C" bool beauty_face_inference_worker_wait_until_processed(
 }
 
 extern "C" size_t beauty_face_inference_worker_copy_tracks(
-	struct beauty_face_inference_worker *worker, struct beauty_face_track *tracks, size_t capacity)
+	struct beauty_face_inference_worker *worker, struct beauty_face_track *tracks, size_t capacity,
+	uint64_t now_ns)
 {
 	if (!worker || !tracks || capacity == 0)
 		return 0;
 	std::lock_guard lock(worker->mutex);
+	beauty_face_tracker_update(&worker->tracker, nullptr, 0, now_ns);
 	const size_t count = std::min(capacity, static_cast<size_t>(BEAUTY_MAX_FACES));
 	std::memcpy(tracks, worker->tracker.tracks, count * sizeof(*tracks));
 	return count;

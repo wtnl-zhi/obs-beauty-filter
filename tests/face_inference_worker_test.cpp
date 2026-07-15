@@ -62,7 +62,8 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	beauty_face_track tracks[BEAUTY_MAX_FACES] = {};
-	if (beauty_face_inference_worker_copy_tracks(worker, tracks, BEAUTY_MAX_FACES) !=
+	if (beauty_face_inference_worker_copy_tracks(worker, tracks, BEAUTY_MAX_FACES,
+								     UINT64_C(2000000)) !=
 	    BEAUTY_MAX_FACES) {
 		std::fputs("worker track copy failed\n", stderr);
 		beauty_face_inference_worker_destroy(worker);

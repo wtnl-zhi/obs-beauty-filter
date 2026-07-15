@@ -13,6 +13,19 @@ uniform float rosy;
 uniform float sharpness;
 uniform float texture_width;
 uniform float texture_height;
+uniform float face_mask_enabled;
+uniform float4 face0;
+uniform float4 face1;
+uniform float4 face2;
+uniform float4 face3;
+uniform float4 eyes0;
+uniform float4 eyes1;
+uniform float4 eyes2;
+uniform float4 eyes3;
+uniform float4 mouth0;
+uniform float4 mouth1;
+uniform float4 mouth2;
+uniform float4 mouth3;
 
 sampler_state linear_sampler {
 	Filter = Linear;
@@ -61,6 +74,39 @@ float3 cross_blur(float2 uv, float2 pixel)
 	return center + (horizontal + vertical) * 0.15;
 }
 
+float ellipse_mask(float2 uv, float4 face)
+{
+	float valid = step(0.0001, face.z * face.w);
+	float2 radius = max(face.zw, float2(0.0001, 0.0001));
+	float distance_from_face = length((uv - face.xy) / radius);
+	return valid * (1.0 - smoothstep(0.84, 1.06, distance_from_face));
+}
+
+float protected_feature(float2 uv, float2 center, float2 radius)
+{
+	float2 safe_radius = max(radius, float2(0.0001, 0.0001));
+	float distance_from_feature = length((uv - center) / safe_radius);
+	return 1.0 - smoothstep(0.75, 1.20, distance_from_feature);
+}
+
+float face_mask_for(float2 uv, float4 face, float4 eyes, float4 mouth)
+{
+	float face_region = ellipse_mask(uv, face);
+	float2 eye_radius = float2(face.z * 0.19, face.w * 0.12);
+	float protect_eyes = max(protected_feature(uv, eyes.xy, eye_radius),
+				protected_feature(uv, eyes.zw, eye_radius));
+	float protect_mouth = protected_feature(uv, mouth.xy, mouth.zw);
+	return face_region * (1.0 - saturate(max(protect_eyes, protect_mouth)));
+}
+
+float face_mask(float2 uv)
+{
+	return saturate(face_mask_for(uv, face0, eyes0, mouth0) +
+				face_mask_for(uv, face1, eyes1, mouth1) +
+				face_mask_for(uv, face2, eyes2, mouth2) +
+				face_mask_for(uv, face3, eyes3, mouth3));
+}
+
 float4 PSBeauty(VertData vert_in) : TARGET
 {
 	float4 source = image.Sample(linear_sampler, vert_in.uv);
@@ -68,6 +114,7 @@ float4 PSBeauty(VertData vert_in) : TARGET
 	float2 pixel = float2(1.0 / texture_width, 1.0 / texture_height) * (1.0 + smoothing * 2.0);
 	float3 blurred = cross_blur(vert_in.uv, pixel);
 	float mask = skin_probability(unpremultiplied);
+	mask *= lerp(1.0, face_mask(vert_in.uv), saturate(face_mask_enabled));
 
 	float3 result = lerp(unpremultiplied, blurred, saturate(smoothing * mask));
 	float3 preserved_detail = unpremultiplied - blurred;

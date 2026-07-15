@@ -1,6 +1,6 @@
 # OBS 双端高阶美颜滤镜插件：开发说明（评审稿）
 
-> 实施状态（2026-07-15）：P0 已完成 macOS arm64 本机构建验证。P1 已完成 MediaPipe Face Landmarker 的 Apple Silicon 原生运行时、模型加载、关键点适配、有界后台推理工作器与 OBS 双 staging 纹理帧桥，并通过真实模型推理测试；GPU 人脸 mask 尚未接入。
+> 实施状态（2026-07-15）：P0 已完成 macOS arm64 本机构建验证。P1 已完成 MediaPipe Face Landmarker 的 Apple Silicon 原生运行时、模型加载、关键点适配、有界后台推理工作器、OBS 双 staging 纹理帧桥及 GPU 关键点驱动的局部 mask，并通过真实模型推理测试；像素级皮肤分割不在当前范围。
 
 ## 1. 文档目的
 
@@ -88,7 +88,7 @@ OBS 输入视频帧
 | Frame Bridge | 从 OBS 图形纹理安全取得最长边 256px 的低分辨率输入；双 staging surface 非阻塞读回，最多每秒提交 10 帧。 |
 | Inference Engine | 加载模型、选择执行后端、在单独工作线程异步运行人脸检测与分割；队列仅保留最新帧。 |
 | Face Tracker | 关联多帧人脸、平滑位置/尺寸/置信度，防止跳动。 |
-| Mask Processor | 羽化、扩张/收缩、时序稳定、遮挡与边缘处理。 |
+| Mask Processor | 基于脸部椭圆与五官保护区生成 GPU 局部 mask；后续增加羽化、扩张/收缩、时序稳定与遮挡处理。 |
 | Beauty Renderer | 基于 OBS `gs_effect` / `.effect` Shader 执行局部美颜。 |
 | Settings & Presets | 持久化参数、版本迁移、预设加载与保存。 |
 | Telemetry/Logging | 记录后端、耗时、降级和错误；首版不采集用户图像。 |
@@ -104,7 +104,7 @@ OBS 输入视频帧
 
 #### P1 选型决定（2026-07-15）
 
-P1 优先接入 MediaPipe Face Landmarker：它以视频模式输出人脸关键点，插件据此生成脸部轮廓 mask，并扣除眼睛、眉毛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。当前 macOS arm64 已验证 CPU/XNNPACK 运行时与最小 OpenCV Core/Imgproc 依赖；具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`。
+P1 优先接入 MediaPipe Face Landmarker：它以视频模式输出人脸关键点，插件据此在 Shader 中生成脸部椭圆 mask，并扣除眼睛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。当前 macOS arm64 已验证 CPU/XNNPACK 运行时与最小 OpenCV Core/Imgproc 依赖；具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`。
 
 ### 4.3 渲染算法（首版）
 

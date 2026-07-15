@@ -36,7 +36,8 @@ bool beauty_face_inference_worker_wait_until_processed(struct beauty_face_infere
 							char *error, size_t error_size);
 
 size_t beauty_face_inference_worker_copy_tracks(struct beauty_face_inference_worker *worker,
-							 struct beauty_face_track *tracks, size_t capacity);
+							 struct beauty_face_track *tracks, size_t capacity,
+							 uint64_t now_ns);
 
 void beauty_face_inference_worker_destroy(struct beauty_face_inference_worker *worker);
 

@@ -8,6 +8,10 @@
 #include <obs-source.h>
 #include <util/platform.h>
 
+#include "face_tracker.h"
+
+#include <stdio.h>
+
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 #include "face_frame_bridge.h"
 #endif
@@ -23,6 +27,10 @@ struct beauty_filter {
 	gs_eparam_t *texture_width_param;
 	gs_eparam_t *texture_height_param;
 	gs_eparam_t *image_param;
+	gs_eparam_t *face_mask_enabled_param;
+	gs_eparam_t *face_params[BEAUTY_MAX_FACES];
+	gs_eparam_t *eyes_params[BEAUTY_MAX_FACES];
+	gs_eparam_t *mouth_params[BEAUTY_MAX_FACES];
 
 	bool enabled;
 	float smoothing;
@@ -111,6 +119,20 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		filter->texture_width_param = gs_effect_get_param_by_name(filter->effect, "texture_width");
 		filter->texture_height_param = gs_effect_get_param_by_name(filter->effect, "texture_height");
 		filter->image_param = gs_effect_get_param_by_name(filter->effect, "image");
+		filter->face_mask_enabled_param =
+			gs_effect_get_param_by_name(filter->effect, "face_mask_enabled");
+		for (size_t index = 0; index < BEAUTY_MAX_FACES; ++index) {
+			char parameter_name[16] = {0};
+			snprintf(parameter_name, sizeof(parameter_name), "face%zu", index);
+			filter->face_params[index] =
+				gs_effect_get_param_by_name(filter->effect, parameter_name);
+			snprintf(parameter_name, sizeof(parameter_name), "eyes%zu", index);
+			filter->eyes_params[index] =
+				gs_effect_get_param_by_name(filter->effect, parameter_name);
+			snprintf(parameter_name, sizeof(parameter_name), "mouth%zu", index);
+			filter->mouth_params[index] =
+				gs_effect_get_param_by_name(filter->effect, parameter_name);
+		}
 	}
 	obs_leave_graphics();
 	bfree(effect_path);
@@ -122,7 +144,7 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 
 	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 	char *model_path = obs_module_file("face_landmarker.task");
-	char error[512] = {};
+	char error[512] = {0};
 	filter->inference_worker = beauty_face_inference_worker_create(
 		model_path, BEAUTY_MAX_FACES, 0.35f, UINT64_C(500000000), error, sizeof(error));
 	bfree(model_path);
@@ -138,7 +160,37 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 	return filter;
 }
 
+static void beauty_filter_set_face_mask_disabled(struct beauty_filter *filter)
+{
+	gs_effect_set_float(filter->face_mask_enabled_param, 0.0f);
+}
+
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+static void beauty_filter_set_face_mask(struct beauty_filter *filter, uint64_t now_ns)
+{
+	struct beauty_face_track tracks[BEAUTY_MAX_FACES] = {0};
+	beauty_face_inference_worker_copy_tracks(filter->inference_worker, tracks,
+							BEAUTY_MAX_FACES, now_ns);
+	gs_effect_set_float(filter->face_mask_enabled_param, 1.0f);
+	for (size_t index = 0; index < BEAUTY_MAX_FACES; ++index) {
+		struct vec4 face = {0};
+		struct vec4 eyes = {0};
+		struct vec4 mouth = {0};
+		if (tracks[index].active) {
+			const struct beauty_face_observation *state = &tracks[index].state;
+			vec4_set(&face, state->center_x, state->center_y, state->radius_x,
+				 state->radius_y);
+			vec4_set(&eyes, state->left_eye_x, state->left_eye_y, state->right_eye_x,
+				 state->right_eye_y);
+			vec4_set(&mouth, state->mouth_x, state->mouth_y, state->radius_x * 0.34f,
+				 state->radius_y * 0.18f);
+		}
+		gs_effect_set_vec4(filter->face_params[index], &face);
+		gs_effect_set_vec4(filter->eyes_params[index], &eyes);
+		gs_effect_set_vec4(filter->mouth_params[index], &mouth);
+	}
+}
+
 static gs_texture_t *beauty_filter_render_input(struct beauty_filter *filter, obs_source_t *target,
 								 uint32_t width, uint32_t height,
 								 enum gs_color_space color_space)
@@ -214,7 +266,9 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 			obs_source_skip_video_filter(filter->context);
 			return;
 		}
-		beauty_frame_bridge_tick(filter->frame_bridge, input, os_gettime_ns());
+		const uint64_t now_ns = os_gettime_ns();
+		beauty_frame_bridge_tick(filter->frame_bridge, input, now_ns);
+		beauty_filter_set_face_mask(filter, now_ns);
 		const bool previous_linear = gs_set_linear_srgb(true);
 		const bool previous_framebuffer_srgb = gs_framebuffer_srgb_enabled();
 		gs_enable_framebuffer_srgb(gs_get_linear_srgb());
@@ -241,6 +295,7 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 	#endif
 
 	gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
+	beauty_filter_set_face_mask_disabled(filter);
 	gs_effect_set_float(filter->detail_param, filter->detail);
 	gs_effect_set_float(filter->brighten_param, filter->brighten);
 	gs_effect_set_float(filter->rosy_param, filter->rosy);
