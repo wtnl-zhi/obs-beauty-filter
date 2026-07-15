@@ -58,8 +58,16 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 {
 	struct beauty_filter *filter = data;
 	struct beauty_preset_values preset_values = {0};
-	const int preset = (int)obs_data_get_int(settings, "preset");
+	int preset = (int)obs_data_get_int(settings, "preset");
 	const int quality_mode = (int)obs_data_get_int(settings, "quality_mode");
+	const int settings_version = (int)obs_data_get_int(settings, "settings_version");
+
+	/* P0 saved only sliders. Preserve those values rather than applying Natural. */
+	if (settings_version < 1) {
+		preset = BEAUTY_PRESET_CUSTOM;
+		obs_data_set_int(settings, "preset", preset);
+		obs_data_set_int(settings, "settings_version", 1);
+	}
 
 	filter->enabled = obs_data_get_bool(settings, "enabled");
 	if (beauty_preset_values_for(preset, &preset_values)) {
@@ -390,6 +398,7 @@ static obs_properties_t *beauty_filter_properties(void *data)
 static void beauty_filter_defaults(obs_data_t *settings)
 {
 	obs_data_set_default_bool(settings, "enabled", true);
+	obs_data_set_default_int(settings, "settings_version", 1);
 	obs_data_set_default_int(settings, "preset", BEAUTY_PRESET_NATURAL);
 	obs_data_set_default_int(settings, "quality_mode", 0);
 	obs_data_set_default_double(settings, "smoothing", 35.0);
