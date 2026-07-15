@@ -63,6 +63,7 @@ cmake --install build/windows-x64 --config RelWithDebInfo --prefix dist
 阶段目标、当前进度与验收门槛见 [开发计划](docs/DEVELOPMENT_PLAN.md)。
 人工 OBS 场景验收步骤见 [场景验收清单](docs/OBS_SCENE_VALIDATION.md)。
 安装、卸载、故障排查与性能建议见 [用户指南](docs/USER_GUIDE.md)。
+支持矩阵、硬件基线与已知限制见 [COMPATIBILITY.md](docs/COMPATIBILITY.md)，版本变更见 [CHANGELOG.md](CHANGELOG.md)。
 macOS 与 Windows 的签名/打包入口位于 `scripts/package-macos-arm64.zsh` 和 `scripts/package-windows-x64.ps1`。
 
 ## 许可证
