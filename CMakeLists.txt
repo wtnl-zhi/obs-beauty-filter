@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.28)
 
 project(obs-beauty-filter VERSION 0.1.0 LANGUAGES C)
 
+include(CTest)
+
 set(OBS_SOURCE_DIR "" CACHE PATH "Path to an OBS Studio source tree matching the target OBS version")
 set(OBS_LIBRARY "" CACHE FILEPATH "Path to the libobs library or framework binary")
 
@@ -17,7 +19,7 @@ if(NOT OBS_LIBRARY)
   endif()
 endif()
 
-add_library(obs-beauty-filter MODULE src/obs-beauty-filter.c)
+add_library(obs-beauty-filter MODULE src/obs-beauty-filter.c src/face_tracker.c)
 
 target_include_directories(obs-beauty-filter PRIVATE "${OBS_SOURCE_DIR}/libobs")
 target_link_libraries(obs-beauty-filter PRIVATE "${OBS_LIBRARY}")
@@ -27,6 +29,16 @@ if(MSVC)
   target_compile_options(obs-beauty-filter PRIVATE /W4)
 else()
   target_compile_options(obs-beauty-filter PRIVATE -Wall -Wextra -Wpedantic)
+endif()
+
+if(BUILD_TESTING)
+  add_executable(face-tracker-test tests/face_tracker_test.c src/face_tracker.c)
+  target_include_directories(face-tracker-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  target_compile_features(face-tracker-test PRIVATE c_std_11)
+  if(NOT MSVC)
+    target_link_libraries(face-tracker-test PRIVATE m)
+  endif()
+  add_test(NAME face-tracker COMMAND face-tracker-test)
 endif()
 
 set_target_properties(obs-beauty-filter PROPERTIES PREFIX "" OUTPUT_NAME "obs-beauty-filter")
