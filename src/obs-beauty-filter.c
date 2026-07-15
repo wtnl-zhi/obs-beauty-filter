@@ -208,7 +208,7 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		return NULL;
 	}
 
-	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 	char *model_path = obs_module_file("face_landmarker.task");
 	char error[512] = {0};
 	filter->inference_worker = beauty_face_inference_worker_create(
@@ -216,11 +216,21 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 	bfree(model_path);
 	if (!filter->inference_worker) {
 		blog(LOG_WARNING, "[obs-beauty-filter] face inference disabled: %s", error);
+		obs_data_set_string(settings, "runtime_status",
+				    obs_module_text("Status.ModelUnavailable"));
 	} else {
+		obs_data_set_string(settings, "runtime_status", obs_module_text("Status.MediaPipe"));
 		filter->frame_bridge = beauty_frame_bridge_create(filter->inference_worker, 256,
-									  UINT64_C(100000000));
+							  UINT64_C(100000000));
+		if (!filter->frame_bridge) {
+			blog(LOG_WARNING, "[obs-beauty-filter] face frame bridge unavailable");
+			obs_data_set_string(settings, "runtime_status",
+					    obs_module_text("Status.ModelUnavailable"));
+		}
 	}
-	#endif
+#else
+	obs_data_set_string(settings, "runtime_status", obs_module_text("Status.Compatible"));
+#endif
 
 	beauty_filter_update(filter, settings);
 	return filter;
@@ -402,6 +412,8 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	obs_property_list_add_int(quality, obs_module_text("Quality.Auto"), 0);
 	obs_property_list_add_int(quality, obs_module_text("Quality.Compatible"), 1);
 	obs_property_list_add_int(quality, obs_module_text("Quality.High"), 2);
+	obs_properties_add_text(props, "runtime_status", obs_module_text("Filter.RuntimeStatus"),
+				OBS_TEXT_INFO);
 
 	obs_property_t *manual = obs_properties_add_float_slider(
 		props, "smoothing", obs_module_text("Filter.Smoothing"), 0.0, 100.0, 1.0);
@@ -430,6 +442,7 @@ static void beauty_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_int(settings, "settings_version", 1);
 	obs_data_set_default_int(settings, "preset", BEAUTY_PRESET_NATURAL);
 	obs_data_set_default_int(settings, "quality_mode", 0);
+	obs_data_set_default_string(settings, "runtime_status", obs_module_text("Status.Loading"));
 	obs_data_set_default_double(settings, "smoothing", 35.0);
 	obs_data_set_default_double(settings, "detail", 70.0);
 	obs_data_set_default_double(settings, "brighten", 15.0);
