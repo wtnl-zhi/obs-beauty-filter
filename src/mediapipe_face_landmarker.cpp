@@ -85,7 +85,9 @@ extern "C" enum beauty_face_inference_status beauty_face_inference_detect(
 	if (observation_count)
 		*observation_count = 0;
 	if (!inference || !frame || !frame->pixels || !observations || !observation_count ||
-	    frame->width <= 0 || frame->height <= 0 || frame->stride_bytes != frame->width * 4 ||
+	    frame->width <= 0 || frame->height <= 0 ||
+	    frame->width > std::numeric_limits<int>::max() / 4 ||
+	    frame->stride_bytes != frame->width * 4 ||
 	    observation_capacity == 0 || observation_capacity > BEAUTY_MAX_FACES ||
 	    observation_capacity > inference->max_faces ||
 	    frame->timestamp_ms > static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) ||

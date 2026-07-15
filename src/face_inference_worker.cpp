@@ -119,16 +119,22 @@ extern "C" bool beauty_face_inference_worker_submit(struct beauty_face_inference
 							     const struct beauty_rgba_frame *frame)
 {
 	if (!worker || !frame || !frame->pixels || frame->width <= 0 || frame->height <= 0 ||
-	    frame->stride_bytes != frame->width * 4)
+	    frame->width > std::numeric_limits<int>::max() / 4 ||
+	    frame->stride_bytes < frame->width * 4)
 		return false;
-	const size_t byte_count = static_cast<size_t>(frame->height) * static_cast<size_t>(frame->stride_bytes);
-	std::vector<uint8_t> pixels(frame->pixels, frame->pixels + byte_count);
+	const size_t row_bytes = static_cast<size_t>(frame->width) * 4;
+	if (static_cast<size_t>(frame->height) > std::numeric_limits<size_t>::max() / row_bytes)
+		return false;
+	std::vector<uint8_t> pixels(static_cast<size_t>(frame->height) * row_bytes);
+	for (int row = 0; row < frame->height; ++row)
+		std::memcpy(pixels.data() + static_cast<size_t>(row) * row_bytes,
+			    frame->pixels + static_cast<size_t>(row) * frame->stride_bytes, row_bytes);
 
 	{
 		std::lock_guard lock(worker->mutex);
 		if (worker->has_submitted_timestamp && frame->timestamp_ms <= worker->latest_submitted_timestamp_ms)
 			return false;
-		worker->pending = {std::move(pixels), frame->width, frame->height, frame->stride_bytes,
+		worker->pending = {std::move(pixels), frame->width, frame->height, (int)row_bytes,
 					   frame->timestamp_ms};
 		worker->has_pending = true;
 		worker->has_submitted_timestamp = true;

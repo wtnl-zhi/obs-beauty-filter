@@ -8,6 +8,10 @@
 #include <obs-source.h>
 #include <util/platform.h>
 
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+#include "face_frame_bridge.h"
+#endif
+
 struct beauty_filter {
 	obs_source_t *context;
 	gs_effect_t *effect;
@@ -18,6 +22,7 @@ struct beauty_filter {
 	gs_eparam_t *sharpness_param;
 	gs_eparam_t *texture_width_param;
 	gs_eparam_t *texture_height_param;
+	gs_eparam_t *image_param;
 
 	bool enabled;
 	float smoothing;
@@ -26,6 +31,12 @@ struct beauty_filter {
 	float rosy;
 	float sharpness;
 	float quality_scale;
+
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	struct beauty_face_inference_worker *inference_worker;
+	struct beauty_frame_bridge *frame_bridge;
+	gs_texrender_t *source_render;
+#endif
 };
 
 static const char *beauty_filter_name(void *unused)
@@ -64,8 +75,17 @@ static void beauty_filter_destroy(void *data)
 {
 	struct beauty_filter *filter = data;
 
+	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	beauty_face_inference_worker_destroy(filter->inference_worker);
+	filter->inference_worker = NULL;
+	#endif
+
 	if (filter->effect) {
 		obs_enter_graphics();
+		#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+		beauty_frame_bridge_destroy(filter->frame_bridge);
+		gs_texrender_destroy(filter->source_render);
+		#endif
 		gs_effect_destroy(filter->effect);
 		obs_leave_graphics();
 	}
@@ -90,6 +110,7 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		filter->sharpness_param = gs_effect_get_param_by_name(filter->effect, "sharpness");
 		filter->texture_width_param = gs_effect_get_param_by_name(filter->effect, "texture_width");
 		filter->texture_height_param = gs_effect_get_param_by_name(filter->effect, "texture_height");
+		filter->image_param = gs_effect_get_param_by_name(filter->effect, "image");
 	}
 	obs_leave_graphics();
 	bfree(effect_path);
@@ -99,9 +120,48 @@ static void *beauty_filter_create(obs_data_t *settings, obs_source_t *context)
 		return NULL;
 	}
 
+	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	char *model_path = obs_module_file("face_landmarker.task");
+	char error[512] = {};
+	filter->inference_worker = beauty_face_inference_worker_create(
+		model_path, BEAUTY_MAX_FACES, 0.35f, UINT64_C(500000000), error, sizeof(error));
+	bfree(model_path);
+	if (!filter->inference_worker) {
+		blog(LOG_WARNING, "[obs-beauty-filter] face inference disabled: %s", error);
+	} else {
+		filter->frame_bridge = beauty_frame_bridge_create(filter->inference_worker, 256,
+									  UINT64_C(100000000));
+	}
+	#endif
+
 	beauty_filter_update(filter, settings);
 	return filter;
 }
+
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+static gs_texture_t *beauty_filter_render_input(struct beauty_filter *filter, obs_source_t *target,
+								 uint32_t width, uint32_t height,
+								 enum gs_color_space color_space)
+{
+	if (!filter->source_render)
+		filter->source_render = gs_texrender_create(GS_RGBA, GS_ZS_NONE);
+	if (!filter->source_render ||
+	    !gs_texrender_begin_with_color_space(filter->source_render, width, height, color_space))
+		return NULL;
+
+	struct vec4 clear_color;
+	vec4_zero(&clear_color);
+	gs_blend_state_push();
+	gs_blend_function_separate(GS_BLEND_SRCALPHA, GS_BLEND_INVSRCALPHA, GS_BLEND_ONE,
+				   GS_BLEND_INVSRCALPHA);
+	gs_clear(GS_CLEAR_COLOR, &clear_color, 0.0f, 0);
+	gs_ortho(0.0f, (float)width, 0.0f, (float)height, -100.0f, 100.0f);
+	obs_source_video_render(target);
+	gs_blend_state_pop();
+	gs_texrender_end(filter->source_render);
+	return gs_texrender_get_texture(filter->source_render);
+}
+#endif
 
 static enum gs_color_space beauty_filter_color_space(void *data, size_t count,
 							      const enum gs_color_space *preferred_spaces)
@@ -145,6 +205,40 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 		obs_source_skip_video_filter(filter->context);
 		return;
 	}
+
+	#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	if (filter->frame_bridge) {
+		gs_texture_t *input = beauty_filter_render_input(filter, target, (uint32_t)width,
+									 (uint32_t)height, source_space);
+		if (!input) {
+			obs_source_skip_video_filter(filter->context);
+			return;
+		}
+		beauty_frame_bridge_tick(filter->frame_bridge, input, os_gettime_ns());
+		const bool previous_linear = gs_set_linear_srgb(true);
+		const bool previous_framebuffer_srgb = gs_framebuffer_srgb_enabled();
+		gs_enable_framebuffer_srgb(gs_get_linear_srgb());
+		if (gs_get_linear_srgb())
+			gs_effect_set_texture_srgb(filter->image_param, input);
+		else
+			gs_effect_set_texture(filter->image_param, input);
+		gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
+		gs_effect_set_float(filter->detail_param, filter->detail);
+		gs_effect_set_float(filter->brighten_param, filter->brighten);
+		gs_effect_set_float(filter->rosy_param, filter->rosy);
+		gs_effect_set_float(filter->sharpness_param, filter->sharpness);
+		gs_effect_set_float(filter->texture_width_param, width);
+		gs_effect_set_float(filter->texture_height_param, height);
+		gs_blend_state_push();
+		gs_blend_function(GS_BLEND_ONE, GS_BLEND_INVSRCALPHA);
+		while (gs_effect_loop(filter->effect, "Draw"))
+			gs_draw_sprite(input, 0, (uint32_t)width, (uint32_t)height);
+		gs_blend_state_pop();
+		gs_enable_framebuffer_srgb(previous_framebuffer_srgb);
+		gs_set_linear_srgb(previous_linear);
+		return;
+	}
+	#endif
 
 	gs_effect_set_float(filter->smoothing_param, filter->smoothing * filter->quality_scale);
 	gs_effect_set_float(filter->detail_param, filter->detail);

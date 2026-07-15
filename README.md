@@ -6,7 +6,7 @@
 
 P0 已实现：可加载的 OBS 视频滤镜、中文配置界面、跨图形后端的 Shader 磨皮/提亮/红润/锐化链路，以及自动、兼容、高质量三个质量模式。
 
-P1 已完成 MediaPipe Face Landmarker 的原生运行时、模型加载、视频帧推理适配层、关键点转换和有界后台推理工作器；Apple Silicon 的 CPU/XNNPACK 路径已通过真实模型推理及工作器测试。工作器只保留最新帧，渲染端提交后立即返回。下一步是从 OBS 纹理异步采样降分辨率帧，并用跟踪结果生成 GPU 局部 mask。当前渲染仍使用保守的像素颜色启发式，因此不应将其视为高阶 AI 美颜的最终效果。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
+P1 已完成 MediaPipe Face Landmarker 的原生运行时、模型加载、视频帧推理适配层、关键点转换、有界后台推理工作器和 OBS 纹理帧桥；Apple Silicon 的 CPU/XNNPACK 路径已通过真实模型推理及工作器测试。帧桥以双 staging surface 每秒最多采样 10 帧，工作器只保留最新帧，渲染端不会等待 GPU 读回或模型推理。下一步是用跟踪结果生成 GPU 局部 mask。当前渲染仍使用保守的像素颜色启发式，因此不应将其视为高阶 AI 美颜的最终效果。第三方依赖和模型的许可证台账见 [THIRD_PARTY.md](docs/THIRD_PARTY.md)。
 
 ## 支持范围
 

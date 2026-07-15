@@ -42,6 +42,25 @@ int main(int argc, char **argv)
 		beauty_face_inference_worker_destroy(worker);
 		return 1;
 	}
+
+	/* GPU staging surfaces may add row padding; the worker must pack it before inference. */
+	std::vector<uint8_t> padded_pixels(height * (width * 4 + 16), 0);
+	frame.pixels = padded_pixels.data();
+	frame.stride_bytes = width * 4 + 16;
+	frame.timestamp_ms = 2;
+	if (!beauty_face_inference_worker_submit(worker, &frame) ||
+	    !beauty_face_inference_worker_wait_until_processed(worker, frame.timestamp_ms, 30000, error,
+									  sizeof(error))) {
+		std::fprintf(stderr, "padded worker inference failed: %s\n", error);
+		beauty_face_inference_worker_destroy(worker);
+		return 1;
+	}
+	frame.timestamp_ms = 1;
+	if (beauty_face_inference_worker_submit(worker, &frame)) {
+		std::fputs("worker accepted a non-monotonic timestamp\n", stderr);
+		beauty_face_inference_worker_destroy(worker);
+		return 1;
+	}
 	beauty_face_track tracks[BEAUTY_MAX_FACES] = {};
 	if (beauty_face_inference_worker_copy_tracks(worker, tracks, BEAUTY_MAX_FACES) !=
 	    BEAUTY_MAX_FACES) {

@@ -50,6 +50,7 @@ if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
   list(APPEND OBS_BEAUTY_SOURCES
     src/mediapipe_face_landmarker.cpp
     src/face_inference_worker.cpp
+    src/face_frame_bridge.c
   )
 endif()
 
@@ -60,6 +61,7 @@ target_link_libraries(obs-beauty-filter PRIVATE "${OBS_LIBRARY}")
 target_compile_features(obs-beauty-filter PRIVATE c_std_11)
 
 if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
+  target_compile_definitions(obs-beauty-filter PRIVATE OBS_BEAUTY_ENABLE_MEDIAPIPE=1)
   target_include_directories(obs-beauty-filter PRIVATE "${MEDIAPIPE_ROOT}")
   target_link_libraries(obs-beauty-filter PRIVATE
     "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
