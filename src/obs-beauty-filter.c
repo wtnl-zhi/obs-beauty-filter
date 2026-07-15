@@ -57,6 +57,7 @@ struct beauty_filter {
 	gs_texrender_t *source_render;
 	bool auto_sampling_degraded;
 	struct beauty_sampling_policy sampling_policy;
+	uint64_t next_performance_status_ns;
 #endif
 };
 
@@ -277,6 +278,32 @@ static void beauty_filter_set_beauty_parameters(struct beauty_filter *filter)
 }
 
 #ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+static void beauty_filter_update_performance_status(struct beauty_filter *filter, uint64_t now_ns)
+{
+	if (now_ns < filter->next_performance_status_ns)
+		return;
+	filter->next_performance_status_ns = now_ns + UINT64_C(1000000000);
+
+	const uint64_t duration_ns =
+		beauty_face_inference_worker_last_inference_duration_ns(filter->inference_worker);
+	char status[128] = {0};
+	if (!duration_ns) {
+		snprintf(status, sizeof(status), "%s", obs_module_text("Status.WaitingForInference"));
+	} else {
+		const unsigned fps = (unsigned)(UINT64_C(1000000000) / filter->sampling_policy.interval_ns);
+		const double milliseconds = (double)duration_ns / 1000000.0;
+		snprintf(status, sizeof(status), "%upx / %ufps / %.1fms", filter->sampling_policy.longest_edge,
+			 fps, milliseconds);
+	}
+	obs_data_t *settings = obs_source_get_settings(filter->context);
+	if (settings) {
+		obs_data_set_string(settings, "performance_status", status);
+		obs_data_release(settings);
+	}
+}
+#endif
+
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
 static void beauty_filter_set_face_mask(struct beauty_filter *filter, uint64_t now_ns)
 {
 	struct beauty_face_track tracks[BEAUTY_MAX_FACES] = {0};
@@ -393,6 +420,7 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 			}
 		}
 		beauty_frame_bridge_tick(filter->frame_bridge, input, now_ns);
+		beauty_filter_update_performance_status(filter, now_ns);
 		beauty_filter_set_face_mask(filter, now_ns);
 		beauty_filter_set_mask_controls(filter);
 		const bool previous_linear = gs_set_linear_srgb(true);
@@ -452,6 +480,8 @@ static obs_properties_t *beauty_filter_properties(void *data)
 	obs_property_list_add_int(quality, obs_module_text("Quality.High"), 2);
 	obs_properties_add_text(props, "runtime_status", obs_module_text("Filter.RuntimeStatus"),
 				OBS_TEXT_INFO);
+	obs_properties_add_text(props, "performance_status", obs_module_text("Filter.PerformanceStatus"),
+				OBS_TEXT_INFO);
 
 	manual = obs_properties_add_float_slider(props, "smoothing", obs_module_text("Filter.Smoothing"),
 						     0.0, 100.0, 1.0);
@@ -488,6 +518,8 @@ static void beauty_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_int(settings, "preset", BEAUTY_PRESET_NATURAL);
 	obs_data_set_default_int(settings, "quality_mode", 0);
 	obs_data_set_default_string(settings, "runtime_status", obs_module_text("Status.Loading"));
+	obs_data_set_default_string(settings, "performance_status",
+				    obs_module_text("Status.WaitingForInference"));
 	obs_data_set_default_double(settings, "smoothing", 35.0);
 	obs_data_set_default_bool(settings, "smoothing_enabled", true);
 	obs_data_set_default_double(settings, "detail", 70.0);
