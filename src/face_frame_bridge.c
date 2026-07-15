@@ -112,6 +112,16 @@ struct beauty_frame_bridge *beauty_frame_bridge_create(struct beauty_face_infere
 	return bridge;
 }
 
+void beauty_frame_bridge_set_sampling(struct beauty_frame_bridge *bridge, uint32_t longest_edge,
+						      uint64_t interval_ns)
+{
+	if (!bridge || !longest_edge || !interval_ns)
+		return;
+	bridge->longest_edge = longest_edge;
+	bridge->interval_ns = interval_ns;
+	bridge->next_capture_ns = 0;
+}
+
 void beauty_frame_bridge_destroy(struct beauty_frame_bridge *bridge)
 {
 	if (!bridge)

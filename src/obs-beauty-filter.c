@@ -10,6 +10,7 @@
 
 #include "face_tracker.h"
 #include "beauty_preset.h"
+#include "beauty_sampling.h"
 
 #include <stdio.h>
 
@@ -96,6 +97,15 @@ static void beauty_filter_update(void *data, obs_data_t *settings)
 		filter->quality_scale = 1.0f;
 		break;
 	}
+
+#ifdef OBS_BEAUTY_ENABLE_MEDIAPIPE
+	if (filter->frame_bridge) {
+		const struct beauty_sampling_policy sampling =
+			beauty_sampling_policy_for_quality(quality_mode);
+		beauty_frame_bridge_set_sampling(filter->frame_bridge, sampling.longest_edge,
+								 sampling.interval_ns);
+	}
+#endif
 }
 
 static void beauty_filter_store_preset(obs_data_t *settings, const struct beauty_preset_values *values)

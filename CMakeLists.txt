@@ -30,6 +30,7 @@ endif()
 set(OBS_BEAUTY_SOURCES
   src/obs-beauty-filter.c
   src/beauty_preset.c
+  src/beauty_sampling.c
   src/face_tracker.c
   src/face_landmarks.c
 )
@@ -109,6 +110,12 @@ if(BUILD_TESTING)
   add_test(NAME beauty-preset COMMAND beauty-preset-test)
   # The Xcode generator can omit test-only executables from ALL_BUILD.
   add_dependencies(face-tracker-test beauty-preset-test)
+
+  add_executable(beauty-sampling-test tests/beauty_sampling_test.c src/beauty_sampling.c)
+  target_include_directories(beauty-sampling-test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+  target_compile_features(beauty-sampling-test PRIVATE c_std_11)
+  add_test(NAME beauty-sampling COMMAND beauty-sampling-test)
+  add_dependencies(face-tracker-test beauty-sampling-test)
 
   if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
     add_executable(face-inference-test

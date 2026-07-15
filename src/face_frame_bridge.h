@@ -18,6 +18,8 @@ struct beauty_frame_bridge;
 
 struct beauty_frame_bridge *beauty_frame_bridge_create(struct beauty_face_inference_worker *worker,
 								uint32_t longest_edge, uint64_t interval_ns);
+void beauty_frame_bridge_set_sampling(struct beauty_frame_bridge *bridge, uint32_t longest_edge,
+						      uint64_t interval_ns);
 void beauty_frame_bridge_destroy(struct beauty_frame_bridge *bridge);
 
 /* Stages a downscaled source texture and submits a previously-ready frame. */
