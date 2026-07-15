@@ -3,5 +3,6 @@
 build/
 build-*/
 dist/
+models/*.task
 *.xcuserstate
 *.xcodeproj/project.xcworkspace/xcuserdata/
