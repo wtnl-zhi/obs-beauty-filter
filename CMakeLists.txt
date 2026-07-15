@@ -10,6 +10,8 @@ option(OBS_BEAUTY_ENABLE_MEDIAPIPE "Build with the MediaPipe Face Landmarker run
 set(MEDIAPIPE_ROOT "" CACHE PATH "Path to the pinned MediaPipe source tree")
 set(MEDIAPIPE_FACE_LANDMARKER_LIBRARY "" CACHE FILEPATH
   "Path to the MediaPipe Face Landmarker shared library")
+set(MEDIAPIPE_FACE_LANDMARKER_RUNTIME "" CACHE FILEPATH
+  "Path to the MediaPipe Face Landmarker runtime DLL (required on Windows)")
 set(MEDIAPIPE_RUNTIME_LIBRARIES "" CACHE STRING
   "Semicolon-separated runtime libraries required by MediaPipe (for example OpenCV)")
 
@@ -37,6 +39,9 @@ if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
   endif()
   if(NOT EXISTS "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}")
     message(FATAL_ERROR "Set MEDIAPIPE_FACE_LANDMARKER_LIBRARY to the built Face Landmarker shared library")
+  endif()
+  if(WIN32 AND NOT EXISTS "${MEDIAPIPE_FACE_LANDMARKER_RUNTIME}")
+    message(FATAL_ERROR "Set MEDIAPIPE_FACE_LANDMARKER_RUNTIME to the Face Landmarker runtime DLL")
   endif()
   if(NOT MEDIAPIPE_RUNTIME_LIBRARIES)
     message(FATAL_ERROR "Set MEDIAPIPE_RUNTIME_LIBRARIES to every shared runtime library required by MediaPipe")
@@ -205,7 +210,7 @@ else()
   install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/data/locale/zh-CN.ini"
     DESTINATION "obs-beauty-filter/data/obs-plugins/obs-beauty-filter/locale")
   if(OBS_BEAUTY_ENABLE_MEDIAPIPE)
-    install(FILES "${MEDIAPIPE_FACE_LANDMARKER_LIBRARY}"
+    install(FILES "${MEDIAPIPE_FACE_LANDMARKER_RUNTIME}"
       DESTINATION "obs-beauty-filter/bin/64bit")
     install(FILES ${MEDIAPIPE_RUNTIME_LIBRARIES}
       DESTINATION "obs-beauty-filter/bin/64bit")

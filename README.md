@@ -38,15 +38,22 @@ scripts/build-mediapipe-macos-arm64.zsh
 
 ## Windows 构建
 
-在 Windows 的 Visual Studio 2022 开发者终端中，提供目标 OBS 版本的源码目录与 `libobs` 库路径：
+在 Windows 10 22H2+ 的 Visual Studio 2022 x64 开发者 PowerShell 中，先准备 Bazelisk 与 OpenCV 3.4.10 Windows x64 包（默认展开至 `C:\opencv\build`），再下载模型并构建运行时：
 
 ```powershell
-cmake --preset windows-x64 -DOBS_SOURCE_DIR=C:/src/obs-studio -DOBS_LIBRARY=C:/path/to/obs.lib
+scripts\fetch-models.ps1
+scripts\build-mediapipe-windows-x64.ps1
+```
+
+脚本会生成 `third_party\prebuilt\windows-x64` 下的 `face_landmarker.dll`、导入库和 `opencv_world3410.dll`。随后提供目标 OBS 版本的源码目录与 `libobs` 库路径：
+
+```powershell
+cmake --preset windows-x64 -DOBS_SOURCE_DIR=C:/src/obs-studio -DOBS_LIBRARY=C:/path/to/obs.lib -DOBS_BEAUTY_ENABLE_MEDIAPIPE=ON -DMEDIAPIPE_ROOT=$env:TEMP/obs-beauty-third-party/mediapipe-0.10.35 -DMEDIAPIPE_FACE_LANDMARKER_LIBRARY=third_party/prebuilt/windows-x64/face_landmarker.lib -DMEDIAPIPE_FACE_LANDMARKER_RUNTIME=third_party/prebuilt/windows-x64/face_landmarker.dll -DMEDIAPIPE_RUNTIME_LIBRARIES=third_party/prebuilt/windows-x64/opencv_world3410.dll
 cmake --build --preset windows-x64 --config RelWithDebInfo
 cmake --install build/windows-x64 --config RelWithDebInfo --prefix dist
 ```
 
-安装布局遵循 OBS 的 `obs-beauty-filter/bin/64bit` 与 `obs-beauty-filter/data` 目录结构。
+安装布局遵循 OBS 的 `obs-beauty-filter/bin/64bit` 与 `obs-beauty-filter/data` 目录结构。该脚本和打包参数已完成代码审查，尚待 Windows x64 原生构建机和 OBS 实机验证。
 
 ## 开发文档
 

@@ -5,9 +5,9 @@
 | 组件 | 用途 | 暂定版本/来源 | 许可证状态 | 接入状态 |
 | --- | --- | --- | --- | --- |
 | OBS Studio SDK / libobs | 插件 API 与渲染接口 | OBS Studio 31+ | GPL-2.0-or-later | P0 使用 API；不打包 libobs。 |
-| MediaPipe | 人脸关键点推理框架 | `v0.10.35`，commit `f8ef212d5c962c0e853db7e59d217056b187084b` | Apache-2.0；发布包需附带 NOTICE | P1 已接入 C API；macOS arm64 原生构建已验证。 |
+| MediaPipe | 人脸关键点推理框架 | `v0.10.35`，commit `f8ef212d5c962c0e853db7e59d217056b187084b` | Apache-2.0；发布包需附带 NOTICE | P1 已接入 C API；macOS arm64 原生构建已验证，Windows x64 构建脚本待实机验证。 |
 | MediaPipe Face Landmarker / Face Mesh V2 | 人脸轮廓、眼睛、嘴唇保护区域 | `face_landmarker.task`，float16/1，SHA-256 `64184e…bc9ff` | Face Mesh V2 模型卡标注 Apache-2.0；具体来源和校验记录在 `models/face_landmarker.json` | P1 暂定模型；二进制不提交，按校验脚本获取。 |
-| OpenCV | MediaPipe CPU 图像转张量（Core / Imgproc） | `3.4.11`，仅构建 Core 与 Imgproc | BSD-3-Clause；发布包需附带 LICENSE / NOTICE | P1 macOS arm64 运行时已验证，不使用 OpenCV 图像编解码/GUI 模块。 |
+| OpenCV | MediaPipe CPU 图像转张量 | macOS：`3.4.11`（Core / Imgproc）；Windows：官方 `3.4.10` x64 `opencv_world3410.dll` | BSD-3-Clause；发布包需附带 LICENSE / NOTICE | macOS 运行时已验证；Windows 构建脚本待实机验证。 |
 | ONNX Runtime / Core ML | 备用推理后端评估 | 待定 | 待定 | 不在 P1 首个集成范围。 |
 
 ## P1 技术决定

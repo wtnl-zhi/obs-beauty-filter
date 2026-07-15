@@ -42,5 +42,5 @@
 - OBS Studio 31+ 开发头文件与 `libobs`。
 - MediaPipe Face Landmarker 运行时与经过许可证审查的模型资产。
 - Apple Silicon P1 运行时还需要最小 OpenCV 3.4.11 Core/Imgproc 动态库；复现脚本会将其与 MediaPipe 一并构建和打包。
-- Windows 构建机（Visual Studio 2022）用于 x64 原生编译与实机测试。
+- Windows 构建机（Visual Studio 2022）用于 x64 原生编译与实机测试；运行时脚本使用 MediaPipe 0.10.35 与 OpenCV 3.4.10 Windows x64 包。
 - macOS 正式发布阶段需要 Apple Developer ID 签名与 notarization。

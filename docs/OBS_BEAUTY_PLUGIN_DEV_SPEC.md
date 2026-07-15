@@ -97,14 +97,14 @@ OBS 输入视频帧
 
 | 平台 | 优先后端 | 后备后端 | 说明 |
 | --- | --- | --- | --- |
-| Windows | Windows ML / DirectML（实现评估后确定其一） | ONNX Runtime CPU | 根据可用硬件选择；GPU 仅用于推理加速。 |
+| Windows x64 | MediaPipe CPU / XNNPACK | P0 Shader 回退；后续评估 DirectML | P1 提供原生构建脚本；尚待 Windows x64 实机验证。 |
 | macOS arm64 | MediaPipe CPU / XNNPACK | 后续评估 Core ML | 当前已验证原生 CPU 路径；不在渲染线程调用。 |
 
 推理层应对上提供统一接口，业务和渲染层不得直接依赖 Direct3D、Metal 或某一家 GPU API。模型与运行时的许可证必须在接入前单独审查。
 
 #### P1 选型决定（2026-07-15）
 
-P1 优先接入 MediaPipe Face Landmarker：它以视频模式输出人脸关键点，插件据此在 Shader 中生成脸部椭圆 mask，并扣除眼睛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。当前 macOS arm64 已验证 CPU/XNNPACK 运行时与最小 OpenCV Core/Imgproc 依赖；具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`。
+P1 优先接入 MediaPipe Face Landmarker：它以视频模式输出人脸关键点，插件据此在 Shader 中生成脸部椭圆 mask，并扣除眼睛、嘴唇等应保护区域。这样可先实现稳定的“仅脸部美颜”，且不在首个 AI 版本就绑定人脸解析模型。macOS arm64 已验证 CPU/XNNPACK 运行时与最小 OpenCV Core/Imgproc 依赖；Windows x64 已提供同一 C API 的原生构建脚本，尚待实机验证。具体模型包、版本、校验值和许可证记录在 `docs/THIRD_PARTY.md`。
 
 ### 4.3 渲染算法（首版）
 
