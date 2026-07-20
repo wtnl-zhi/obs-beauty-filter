@@ -369,6 +369,20 @@ static gs_texture_t *beauty_filter_render_input(struct beauty_filter *filter, ob
 	gs_texrender_end(filter->source_render);
 	return gs_texrender_get_texture(filter->source_render);
 }
+
+static void beauty_filter_video_tick(void *data, float seconds)
+{
+	UNUSED_PARAMETER(seconds);
+	struct beauty_filter *filter = data;
+	if (filter->frame_bridge && beauty_face_inference_worker_is_healthy(filter->inference_worker))
+		beauty_filter_update_performance_status(filter, os_gettime_ns());
+}
+#else
+static void beauty_filter_video_tick(void *data, float seconds)
+{
+	UNUSED_PARAMETER(data);
+	UNUSED_PARAMETER(seconds);
+}
 #endif
 
 static enum gs_color_space beauty_filter_color_space(void *data, size_t count,
@@ -441,23 +455,13 @@ static void beauty_filter_render(void *data, gs_effect_t *effect)
 		beauty_filter_update_performance_status(filter, now_ns);
 		beauty_filter_set_face_mask(filter, now_ns);
 		beauty_filter_set_mask_controls(filter);
-		const bool previous_linear = gs_set_linear_srgb(true);
-		const bool previous_framebuffer_srgb = gs_framebuffer_srgb_enabled();
-		gs_enable_framebuffer_srgb(gs_get_linear_srgb());
-		if (gs_get_linear_srgb())
-			gs_effect_set_texture_srgb(filter->image_param, input);
-		else
-			gs_effect_set_texture(filter->image_param, input);
 		beauty_filter_set_beauty_parameters(filter);
 		gs_effect_set_float(filter->texture_width_param, width);
 		gs_effect_set_float(filter->texture_height_param, height);
 		gs_blend_state_push();
 		gs_blend_function(GS_BLEND_ONE, GS_BLEND_INVSRCALPHA);
-		while (gs_effect_loop(filter->effect, "Draw"))
-			gs_draw_sprite(input, 0, (uint32_t)width, (uint32_t)height);
+		obs_source_process_filter_end(filter->context, filter->effect, 0, 0);
 		gs_blend_state_pop();
-		gs_enable_framebuffer_srgb(previous_framebuffer_srgb);
-		gs_set_linear_srgb(previous_linear);
 		return;
 	}
 	#endif
@@ -560,6 +564,7 @@ static struct obs_source_info beauty_filter_info = {
 	.create = beauty_filter_create,
 	.destroy = beauty_filter_destroy,
 	.update = beauty_filter_update,
+	.video_tick = beauty_filter_video_tick,
 	.video_render = beauty_filter_render,
 	.video_get_color_space = beauty_filter_color_space,
 	.get_properties = beauty_filter_properties,

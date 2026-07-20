@@ -19,6 +19,8 @@ struct beauty_frame_bridge {
 	uint64_t interval_ns;
 	uint64_t next_capture_ns;
 	uint8_t next_stage;
+	bool logged_first_submission;
+	bool has_submitted_frame;
 };
 
 static void calculate_size(uint32_t source_width, uint32_t source_height, uint32_t longest_edge,
@@ -76,6 +78,7 @@ static bool ensure_surfaces(struct beauty_frame_bridge *bridge, uint32_t width, 
 	}
 	bridge->width = width;
 	bridge->height = height;
+	blog(LOG_INFO, "[obs-beauty-filter] P1 frame bridge initialized at %ux%u", width, height);
 	return true;
 }
 
@@ -94,8 +97,13 @@ static void submit_ready_stage(struct beauty_frame_bridge *bridge, uint32_t stag
 		.stride_bytes = (int)stride,
 		.timestamp_ms = bridge->staged_at_ns[stage_index] / UINT64_C(1000000),
 	};
-	if (!beauty_face_inference_worker_submit(bridge->worker, &frame))
+	if (!beauty_face_inference_worker_submit(bridge->worker, &frame)) {
 		blog(LOG_WARNING, "[obs-beauty-filter] dropped invalid or stale inference frame");
+	} else if (!bridge->logged_first_submission) {
+		bridge->logged_first_submission = true;
+		bridge->has_submitted_frame = true;
+		blog(LOG_INFO, "[obs-beauty-filter] P1 frame bridge submitted first inference frame");
+	}
 	gs_stagesurface_unmap(bridge->stages[stage_index]);
 	bridge->staged_at_ns[stage_index] = 0;
 }
@@ -134,7 +142,8 @@ void beauty_frame_bridge_destroy(struct beauty_frame_bridge *bridge)
 void beauty_frame_bridge_tick(struct beauty_frame_bridge *bridge, gs_texture_t *source_texture,
 				      uint64_t now_ns)
 {
-	if (!bridge || !source_texture || now_ns < bridge->next_capture_ns)
+	if (!bridge || !source_texture ||
+	    (bridge->has_submitted_frame && now_ns < bridge->next_capture_ns))
 		return;
 
 	uint32_t width = 0;
@@ -167,6 +176,16 @@ void beauty_frame_bridge_tick(struct beauty_frame_bridge *bridge, gs_texture_t *
 		return;
 	gs_stage_texture(bridge->stages[bridge->next_stage], downscaled);
 	bridge->staged_at_ns[bridge->next_stage] = now_ns;
+	if (!bridge->has_submitted_frame) {
+		/*
+		 * OBS may cache a static-looking preview before the normal two-stage
+		 * readback has another render pass to consume it.  Complete the first
+		 * transfer synchronously so inference never remains at its bootstrap
+		 * status solely because no later frame is requested.
+		 */
+		gs_flush();
+		submit_ready_stage(bridge, bridge->next_stage);
+	}
 	bridge->next_stage = (bridge->next_stage + 1) % OBS_COUNTOF(bridge->stages);
 	bridge->next_capture_ns = now_ns + bridge->interval_ns;
 }
