@@ -195,6 +195,15 @@ if(BUILD_TESTING)
     target_compile_features(face-inference-worker-test PRIVATE cxx_std_20)
     add_test(NAME face-inference-worker
       COMMAND face-inference-worker-test "${CMAKE_CURRENT_SOURCE_DIR}/models/face_landmarker.task")
+    if(APPLE)
+      # The inference tests exercise the native MediaPipe runtime directly.
+      # Make them load the exact Frameworks copy placed in the P1 bundle so
+      # CTest remains reproducible when the original third-party build tree
+      # is no longer present on the developer machine.
+      set_tests_properties(face-inference face-inference-worker PROPERTIES
+        ENVIRONMENT "DYLD_LIBRARY_PATH=$<TARGET_BUNDLE_CONTENT_DIR:obs-beauty-filter>/Frameworks"
+      )
+    endif()
     # The Xcode generator can omit a test-only executable from ALL_BUILD.
     # Keep the inference smoke test in the default P1 build through an
     # existing default target, so `ctest` never sees an absent executable.
